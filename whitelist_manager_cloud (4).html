@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SS Studio — Whitelist Manager</title>
+
+<!-- Firebase Compat SDK (no ES modules = no import errors) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg:       #0d0f14;
+  --surface:  #151821;
+  --border:   #1f2330;
+  --accent:   #7c6af7;
+  --accent2:  #4ee8b0;
+  --danger:   #f76a6a;
+  --text:     #e8eaf0;
+  --muted:    #6b7080;
+  --sidebar-w: 220px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Mono',monospace;background:var(--bg);color:var(--text);min-height:100vh;display:flex;overflow:hidden}
+
+/* ── SIDEBAR ─────────────────────────────────────── */
+#sidebar{
+  width:var(--sidebar-w);flex-shrink:0;
+  background:var(--surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;height:100vh;position:relative;z-index:10;
+  transition:transform .25s ease;
+}
+.sb-logo{
+  padding:28px 20px 20px;
+  display:flex;align-items:center;gap:10px;
+  border-bottom:1px solid var(--border);
+}
+.sb-logo svg{width:32px;height:32px;flex-shrink:0}
+.sb-logo-text{font-family:'Syne',sans-serif;font-weight:800;font-size:15px;line-height:1.2;color:var(--text)}
+.sb-logo-sub{font-size:9px;color:var(--muted);font-weight:400;letter-spacing:.08em;text-transform:uppercase}
+.sb-nav{flex:1;padding:12px 8px;overflow-y:auto;display:flex;flex-direction:column;gap:2px}
+.sb-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 12px;border-radius:8px;cursor:pointer;
+  font-size:12px;color:var(--muted);letter-spacing:.02em;
+  transition:all .15s;border:1px solid transparent;user-select:none;
+}
+.sb-item:hover{color:var(--text);background:rgba(124,106,247,.08)}
+.sb-item.active{color:var(--accent);background:rgba(124,106,247,.12);border-color:rgba(124,106,247,.2)}
+.sb-item svg{width:15px;height:15px;flex-shrink:0}
+.sb-sep{height:1px;background:var(--border);margin:8px 4px}
+.sb-user{
+  padding:14px;border-top:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;
+}
+.sb-avatar{width:30px;height:30px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-family:'Syne',sans-serif;font-weight:700;flex-shrink:0}
+.sb-username{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.sb-logout{background:none;border:none;color:var(--muted);cursor:pointer;padding:4px;border-radius:4px;display:flex;align-items:center}
+.sb-logout:hover{color:var(--danger)}
+
+/* ── MAIN ─────────────────────────────────────────── */
+#main{flex:1;display:flex;flex-direction:column;height:100vh;overflow:hidden}
+#topbar{
+  height:56px;flex-shrink:0;
+  border-bottom:1px solid var(--border);background:var(--surface);
+  display:flex;align-items:center;padding:0 24px;gap:12px;
+}
+#topbar-title{font-family:'Syne',sans-serif;font-weight:700;font-size:16px;flex:1}
+#topbar-badge{
+  font-size:10px;padding:3px 10px;border-radius:20px;
+  background:rgba(124,106,247,.15);color:var(--accent);
+  border:1px solid rgba(124,106,247,.25);letter-spacing:.06em;
+}
+#menu-btn{display:none;background:none;border:none;color:var(--text);cursor:pointer;padding:4px}
+#content{flex:1;overflow-y:auto;padding:28px 28px}
+
+/* ── LOGIN PAGE ───────────────────────────────────── */
+#login-page{
+  position:fixed;inset:0;background:var(--bg);
+  display:flex;align-items:center;justify-content:center;z-index:100;
+  flex-direction:column;gap:20px;
+}
+.login-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:16px;padding:40px;text-align:center;width:320px;
+  display:flex;flex-direction:column;gap:20px;align-items:center;
+}
+.login-logo{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+.login-logo svg{width:44px;height:44px}
+.login-title{font-family:'Syne',sans-serif;font-weight:800;font-size:20px}
+.login-sub{font-size:11px;color:var(--muted);line-height:1.6}
+.btn-google{
+  display:flex;align-items:center;gap:10px;
+  background:white;color:#1a1a2e;
+  border:none;border-radius:8px;padding:10px 20px;
+  font-family:'DM Mono',monospace;font-size:12px;font-weight:500;
+  cursor:pointer;width:100%;justify-content:center;
+  transition:opacity .15s;
+}
+.btn-google:hover{opacity:.9}
+.btn-google:disabled{opacity:.5;cursor:not-allowed}
+.login-status{font-size:11px;color:var(--accent);min-height:16px}
+
+/* ── CARDS & SECTIONS ────────────────────────────── */
+.section-head{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:20px;flex-wrap:wrap;gap:12px;
+}
+.section-title{font-family:'Syne',sans-serif;font-weight:700;font-size:17px}
+.section-sub{font-size:11px;color:var(--muted);margin-top:3px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px}
+.card+.card{margin-top:12px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:640px){.grid-2{grid-template-columns:1fr}}
+
+/* ── FORM ELEMENTS ────────────────────────────────── */
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:10px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.field .badge-req{
+  display:inline-block;font-size:9px;padding:1px 6px;border-radius:10px;
+  background:rgba(78,232,176,.15);color:var(--accent2);border:1px solid rgba(78,232,176,.25);
+  vertical-align:middle;margin-left:4px;
+}
+.field .badge-opt{
+  display:inline-block;font-size:9px;padding:1px 6px;border-radius:10px;
+  background:rgba(107,112,128,.12);color:var(--muted);border:1px solid rgba(107,112,128,.2);
+  vertical-align:middle;margin-left:4px;
+}
+input[type=text],input[type=password],select,textarea{
+  background:var(--bg);border:1px solid var(--border);
+  border-radius:8px;padding:9px 12px;
+  color:var(--text);font-family:'DM Mono',monospace;font-size:12px;
+  outline:none;width:100%;transition:border-color .15s;
+}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+input::placeholder{color:var(--muted)}
+select option{background:var(--surface)}
+.checkbox-row{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;font-size:12px;color:var(--muted)}
+.checkbox-row input{width:auto}
+
+/* ── BUTTONS ──────────────────────────────────────── */
+.btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:8px 16px;border-radius:8px;font-family:'DM Mono',monospace;
+  font-size:11px;cursor:pointer;border:none;transition:all .15s;letter-spacing:.03em;
+}
+.btn-primary{background:var(--accent);color:white}
+.btn-primary:hover{filter:brightness(1.1)}
+.btn-danger{background:rgba(247,106,106,.12);color:var(--danger);border:1px solid rgba(247,106,106,.2)}
+.btn-danger:hover{background:rgba(247,106,106,.2)}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border)}
+.btn-ghost:hover{color:var(--text);border-color:rgba(255,255,255,.2)}
+.btn-sm{padding:5px 10px;font-size:10px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* ── PRODUCT CHIPS ────────────────────────────────── */
+.product-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.chip{
+  display:flex;align-items:center;gap:6px;
+  padding:5px 10px;border-radius:6px;font-size:11px;cursor:pointer;
+  border:1px solid var(--border);color:var(--muted);transition:all .15s;user-select:none;
+}
+.chip.selected{border-color:var(--accent);color:var(--accent);background:rgba(124,106,247,.1)}
+.chip svg{width:12px;height:12px}
+
+/* ── TABLE / LIST ─────────────────────────────────── */
+.list-item{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 14px;border-radius:8px;
+  border:1px solid var(--border);background:var(--bg);
+  margin-bottom:8px;transition:border-color .15s;
+}
+.list-item:hover{border-color:rgba(124,106,247,.3)}
+.list-avatar{
+  width:34px;height:34px;border-radius:8px;
+  background:rgba(124,106,247,.15);display:flex;align-items:center;
+  justify-content:center;font-size:13px;flex-shrink:0;
+}
+.list-info{flex:1;min-width:0}
+.list-id{font-size:12px;color:var(--text);font-weight:500}
+.list-meta{font-size:10px;color:var(--muted);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap}
+.list-products{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+.pill{font-size:9px;padding:2px 7px;border-radius:10px;background:rgba(124,106,247,.12);color:var(--accent);border:1px solid rgba(124,106,247,.15)}
+.pill-green{background:rgba(78,232,176,.1);color:var(--accent2);border-color:rgba(78,232,176,.15)}
+
+/* ── KEBAB MENU ───────────────────────────────────── */
+.kebab-wrap{position:relative}
+.kebab-btn{
+  background:none;border:none;color:var(--muted);cursor:pointer;
+  padding:5px;border-radius:6px;display:flex;align-items:center;
+  transition:all .15s;
+}
+.kebab-btn:hover{background:rgba(255,255,255,.07);color:var(--text)}
+.kebab-menu{
+  position:absolute;right:0;top:calc(100% + 4px);
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:8px;min-width:150px;z-index:50;
+  box-shadow:0 8px 24px rgba(0,0,0,.4);
+  overflow:hidden;display:none;
+}
+.kebab-menu.open{display:block}
+.kebab-action{
+  display:flex;align-items:center;gap:8px;
+  padding:9px 14px;font-size:11px;color:var(--muted);cursor:pointer;
+  transition:background .1s;
+}
+.kebab-action:hover{background:rgba(255,255,255,.04);color:var(--text)}
+.kebab-action.danger{color:var(--danger)}
+.kebab-action.danger:hover{background:rgba(247,106,106,.08)}
+.kebab-action svg{width:13px;height:13px;flex-shrink:0}
+
+/* ── MODAL ────────────────────────────────────────── */
+.modal-bg{
+  position:fixed;inset:0;background:rgba(0,0,0,.6);
+  backdrop-filter:blur(4px);z-index:200;
+  display:none;align-items:center;justify-content:center;
+}
+.modal-bg.open{display:flex}
+.modal{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:14px;padding:28px;width:360px;max-width:90vw;
+}
+.modal-title{font-family:'Syne',sans-serif;font-weight:700;font-size:16px;margin-bottom:8px}
+.modal-body{font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:20px}
+.modal-body strong{color:var(--text)}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end}
+
+/* ── TOAST ────────────────────────────────────────── */
+#toast-wrap{position:fixed;bottom:20px;right:20px;z-index:500;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{
+  padding:10px 16px;border-radius:8px;font-size:11px;
+  background:var(--surface);border:1px solid var(--border);
+  animation:toastIn .2s ease;max-width:300px;
+  display:flex;align-items:center;gap:8px;
+}
+.toast.success{border-color:rgba(78,232,176,.3);color:var(--accent2)}
+.toast.error{border-color:rgba(247,106,106,.3);color:var(--danger)}
+.toast.info{border-color:rgba(124,106,247,.3);color:var(--accent)}
+@keyframes toastIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ── EMPTY STATE ─────────────────────────────────── */
+.empty{
+  text-align:center;padding:48px 20px;color:var(--muted);
+  border:1px dashed var(--border);border-radius:10px;
+}
+.empty svg{width:36px;height:36px;margin-bottom:12px;opacity:.4}
+.empty p{font-size:12px;line-height:1.6}
+
+/* ── STATS ROW ───────────────────────────────────── */
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
+.stat-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:10px;padding:14px 16px;
+}
+.stat-num{font-family:'Syne',sans-serif;font-weight:800;font-size:22px;color:var(--text)}
+.stat-label{font-size:10px;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:.06em}
+
+/* ── SETTINGS ────────────────────────────────────── */
+.settings-section{margin-bottom:24px}
+.settings-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px}
+.product-list{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.product-row{
+  display:flex;align-items:center;gap:8px;
+  padding:10px 12px;background:var(--bg);
+  border:1px solid var(--border);border-radius:8px;
+}
+.product-row input{flex:1}
+.product-row .product-name{flex:1;font-size:12px}
+.product-row .product-id{font-size:11px;color:var(--muted)}
+
+/* ── RESPONSIVE ───────────────────────────────────── */
+@media(max-width:640px){
+  #sidebar{position:fixed;top:0;left:0;height:100%;transform:translateX(-100%)}
+  #sidebar.open{transform:none}
+  #menu-btn{display:flex}
+  #content{padding:20px 16px}
+  .stats-row{grid-template-columns:1fr 1fr}
+}
+
+/* ── MISC ─────────────────────────────────────────── */
+.divider{height:1px;background:var(--border);margin:16px 0}
+.tag-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+code{font-family:'DM Mono',monospace;font-size:11px;background:rgba(124,106,247,.1);color:var(--accent);padding:1px 6px;border-radius:4px}
+.spinner{
+  width:16px;height:16px;border:2px solid rgba(255,255,255,.15);
+  border-top-color:var(--accent);border-radius:50%;
+  animation:spin .6s linear infinite;display:inline-block;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.log-box{
+  background:var(--bg);border:1px solid var(--border);border-radius:8px;
+  padding:12px;max-height:160px;overflow-y:auto;font-size:11px;line-height:1.8;
+}
+.log-ok{color:var(--accent2)}.log-err{color:var(--danger)}.log-info{color:var(--muted)}
+</style>
+</head>
+<body>
+
+<!-- ══ LOGIN PAGE ══════════════════════════════════ -->
+<div id="login-page">
+  <div class="login-card">
+    <div class="login-logo">
+      <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="44" height="44" rx="10" fill="#151821"/>
+        <rect x="1" y="1" width="42" height="42" rx="9" stroke="#1f2330" stroke-width="2"/>
+        <path d="M12 22 L22 12 L32 22 L22 32 Z" fill="none" stroke="#7c6af7" stroke-width="2"/>
+        <path d="M22 16 L28 22 L22 28 L16 22 Z" fill="#7c6af7" opacity=".4"/>
+        <circle cx="22" cy="22" r="3" fill="#4ee8b0"/>
+      </svg>
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:18px">SS Studio</div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:.06em">WHITELIST MANAGER</div>
+      </div>
+    </div>
+    <p class="login-sub">Masuk untuk mengelola akses<br>pembeli asset Roblox kamu.</p>
+    <button class="btn-google" id="btn-login">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/><path d="M3.964 10.707A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.961L3.964 6.293C4.672 4.166 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>
+      Login dengan Google
+    </button>
+    <div class="login-status" id="login-status"></div>
+  </div>
+</div>
+
+<!-- ══ APP ═════════════════════════════════════════ -->
+<div id="app" style="display:none;width:100%;display:none">
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div class="sb-logo">
+      <svg viewBox="0 0 32 32" fill="none">
+        <rect width="32" height="32" rx="7" fill="#151821"/>
+        <rect x="1" y="1" width="30" height="30" rx="6" stroke="#1f2330" stroke-width="1.5"/>
+        <path d="M8 16 L16 8 L24 16 L16 24 Z" fill="none" stroke="#7c6af7" stroke-width="1.5"/>
+        <path d="M16 11.5 L20.5 16 L16 20.5 L11.5 16 Z" fill="#7c6af7" opacity=".4"/>
+        <circle cx="16" cy="16" r="2.2" fill="#4ee8b0"/>
+      </svg>
+      <div class="sb-logo-text">SS Studio<div class="sb-logo-sub">Whitelist Mgr</div></div>
+    </div>
+    <nav class="sb-nav" id="sb-nav">
+      <div class="sb-item active" data-page="dashboard">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h5v5H2zm7 0h5v5H9zM2 9h5v5H2zm7 0h5v5H9z" opacity=".7"/></svg>
+        Dashboard
+      </div>
+      <div class="sb-item" data-page="manage">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v12M2 8h12"/></svg>
+        Kelola Akses
+      </div>
+      <div class="sb-sep"></div>
+      <div class="sb-item" data-page="users">
+        <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.314 2.686-5 6-5s6 1.686 6 5"/></svg>
+        Authorized Users
+      </div>
+      <div class="sb-item" data-page="communities">
+        <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="4" cy="6" r="2.5"/><circle cx="12" cy="6" r="2.5"/><circle cx="8" cy="5" r="2.5"/><path d="M0 14c0-2.5 1.8-4 4-4m8 0c2.2 0 4 1.5 4 4M5 14c0-2 1.3-3.5 3-3.5s3 1.5 3 3.5"/></svg>
+        Authorized Communities
+      </div>
+      <div class="sb-sep"></div>
+      <div class="sb-item" data-page="settings">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2m10 0h2M3.05 3.05l1.41 1.41m7.08 7.08 1.41 1.41M3.05 12.95l1.41-1.41m7.08-7.08 1.41-1.41"/></svg>
+        Pengaturan
+      </div>
+    </nav>
+    <div class="sb-user">
+      <div class="sb-avatar" id="sb-avatar">?</div>
+      <div class="sb-username" id="sb-username">—</div>
+      <button class="sb-logout" id="btn-logout" title="Logout">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 3h3a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-3M7 11l3-3-3-3M10 8H2"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div id="main">
+    <div id="topbar">
+      <button id="menu-btn">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><rect y="3" width="20" height="2" rx="1"/><rect y="9" width="20" height="2" rx="1"/><rect y="15" width="20" height="2" rx="1"/></svg>
+      </button>
+      <div id="topbar-title">Dashboard</div>
+      <span id="topbar-badge">v3.0</span>
+    </div>
+    <div id="content">
+      <!-- injected by JS -->
+    </div>
+  </div>
+</div>
+
+<!-- ══ CONFIRM MODAL ═══════════════════════════════ -->
+<div class="modal-bg" id="confirm-modal">
+  <div class="modal">
+    <div class="modal-title" id="confirm-title">Konfirmasi</div>
+    <div class="modal-body" id="confirm-body"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="confirm-cancel">Batal</button>
+      <button class="btn btn-danger" id="confirm-ok">Ya, Hapus</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TOAST CONTAINER ═════════════════════════════ -->
+<div id="toast-wrap"></div>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  FIREBASE INIT (compat SDK — no import/module issues)
+// ══════════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey:            "AIzaSyBUTcNMzcEBup7dV245bSpIz6dp0I8paCg",
+  authDomain:        "ss-studio-2660f.firebaseapp.com",
+  projectId:         "ss-studio-2660f",
+  storageBucket:     "ss-studio-2660f.firebasestorage.app",
+  messagingSenderId: "164655528970",
+  appId:             "1:164655528970:web:bc626fb265cb1313f973f3",
+  measurementId:     "G-323513XJXK"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+
+// ══════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════
+let currentUser  = null;
+let settings     = { robloxApiKey:'', products:[], sheetsUrl:'' };
+let authorizedUsers        = [];  // { id, userId, name, products, addedAt }
+let authorizedCommunities  = [];  // { id, groupId, name, products, addedAt }
+let currentPage  = 'dashboard';
+
+// ══════════════════════════════════════════════════════
+//  AUTH
+// ══════════════════════════════════════════════════════
+document.getElementById('btn-login').addEventListener('click', function() {
+  const s = document.getElementById('login-status');
+  s.textContent = 'Mengarahkan ke Google…';
+  this.disabled = true;
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithRedirect(provider).catch(err => {
+    s.textContent = 'Error: ' + err.message;
+    this.disabled = false;
+  });
+});
+
+document.getElementById('btn-logout').addEventListener('click', function() {
+  auth.signOut();
+});
+
+auth.getRedirectResult().catch(console.error);
+
+auth.onAuthStateChanged(user => {
+  if (user) {
+    currentUser = user;
+    document.getElementById('login-page').style.display = 'none';
+    document.getElementById('app').style.display        = 'flex';
+    const init = user.displayName || user.email || '';
+    document.getElementById('sb-avatar').textContent   = init.charAt(0).toUpperCase();
+    document.getElementById('sb-username').textContent = user.displayName || user.email;
+    loadSettings().then(() => {
+      loadAuthorizedUsers();
+      loadAuthorizedCommunities();
+      navigateTo('dashboard');
+    });
+  } else {
+    currentUser = null;
+    document.getElementById('login-page').style.display = 'flex';
+    document.getElementById('app').style.display        = 'none';
+  }
+});
+
+// ══════════════════════════════════════════════════════
+//  FIRESTORE HELPERS
+// ══════════════════════════════════════════════════════
+function userRef()  { return db.collection('users').doc(currentUser.uid); }
+function usersCol() { return userRef().collection('authorizedUsers'); }
+function comCol()   { return userRef().collection('authorizedCommunities'); }
+
+async function loadSettings() {
+  try {
+    const doc = await userRef().collection('data').doc('settings').get();
+    if (doc.exists) settings = {...settings, ...doc.data()};
+  } catch(e) { console.error(e); }
+}
+async function saveSettings() {
+  await userRef().collection('data').doc('settings').set(settings);
+}
+async function loadAuthorizedUsers() {
+  try {
+    const snap = await usersCol().orderBy('addedAt','desc').get();
+    authorizedUsers = snap.docs.map(d => ({id:d.id,...d.data()}));
+    if (currentPage==='users') renderPage();
+    if (currentPage==='dashboard') renderPage();
+  } catch(e) { console.error(e); }
+}
+async function loadAuthorizedCommunities() {
+  try {
+    const snap = await comCol().orderBy('addedAt','desc').get();
+    authorizedCommunities = snap.docs.map(d => ({id:d.id,...d.data()}));
+    if (currentPage==='communities') renderPage();
+    if (currentPage==='dashboard') renderPage();
+  } catch(e) { console.error(e); }
+}
+
+// ══════════════════════════════════════════════════════
+//  ROBLOX API
+// ══════════════════════════════════════════════════════
+async function robloxSetPermission(assetId, subjectId, subjectType, action) {
+  if (!settings.robloxApiKey) throw new Error('API Key belum diisi di Pengaturan');
+  const url = `https://apis.roblox.com/asset-permissions-api/v1/assets/${assetId}/permissions`;
+  const body = { requests:[{ subjectType, subjectId: String(subjectId), action }] };
+  const res = await fetch(url, {
+    method:'PATCH',
+    headers:{ 'x-api-key': settings.robloxApiKey, 'Content-Type':'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(()=>'');
+    throw new Error(`Roblox API error ${res.status}: ${t}`);
+  }
+  return true;
+}
+
+// ══════════════════════════════════════════════════════
+//  NAVIGATION
+// ══════════════════════════════════════════════════════
+document.getElementById('sb-nav').addEventListener('click', e => {
+  const item = e.target.closest('[data-page]');
+  if (item) navigateTo(item.dataset.page);
+});
+document.getElementById('menu-btn').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.toggle('open');
+});
+document.getElementById('content').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.remove('open');
+});
+
+function navigateTo(page) {
+  currentPage = page;
+  document.querySelectorAll('.sb-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.page === page);
+  });
+  const titles = {
+    dashboard:'Dashboard', manage:'Kelola Akses',
+    users:'Authorized Users', communities:'Authorized Communities',
+    settings:'Pengaturan'
+  };
+  document.getElementById('topbar-title').textContent = titles[page]||page;
+  renderPage();
+}
+function renderPage() {
+  const c = document.getElementById('content');
+  const pages = { dashboard:renderDashboard, manage:renderManage,
+    users:renderUsers, communities:renderCommunities, settings:renderSettings };
+  c.innerHTML = '';
+  if (pages[currentPage]) c.innerHTML = pages[currentPage]();
+  afterRender(currentPage);
+}
+
+// ══════════════════════════════════════════════════════
+//  PAGES
+// ══════════════════════════════════════════════════════
+function renderDashboard() {
+  const totalProds = settings.products ? settings.products.length : 0;
+  return `
+  <div class="section-head">
+    <div>
+      <div class="section-title">Selamat datang 👋</div>
+      <div class="section-sub">Kelola whitelist pembeli asset kamu</div>
+    </div>
+  </div>
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-num">${authorizedUsers.length}</div>
+      <div class="stat-label">Authorized Users</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num">${authorizedCommunities.length}</div>
+      <div class="stat-label">Communities</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num">${totalProds}</div>
+      <div class="stat-label">Produk</div>
+    </div>
+  </div>
+  <div class="card">
+    <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:13px;margin-bottom:12px">Akses Cepat</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="navigateTo('manage')">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 1v10M1 6h10"/></svg>
+        Tambah Akses
+      </button>
+      <button class="btn btn-ghost" onclick="navigateTo('users')">Lihat Users</button>
+      <button class="btn btn-ghost" onclick="navigateTo('communities')">Lihat Communities</button>
+    </div>
+  </div>
+  ${!settings.robloxApiKey?`<div class="card" style="border-color:rgba(247,106,106,.3);margin-top:12px">
+    <div style="color:var(--danger);font-size:12px">⚠️ API Key Roblox belum diisi. <span style="cursor:pointer;text-decoration:underline" onclick="navigateTo('settings')">Isi sekarang →</span></div>
+  </div>`:''}
+  `;
+}
+
+function renderManage() {
+  const prods = (settings.products||[]).map(p =>
+    `<div class="chip" data-pid="${p.assetId}" data-pname="${p.name}">${p.name}</div>`).join('');
+  return `
+  <div class="section-head">
+    <div class="section-title">Kelola Akses</div>
+  </div>
+  <div class="card">
+    <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:13px;margin-bottom:16px">Tambah / Cabut Akses Pembeli</div>
+
+    <div class="grid-2">
+      <div class="field">
+        <label>User ID <span class="badge-req">Wajib</span></label>
+        <input type="text" id="in-uid" placeholder="misal: 1234567890">
+      </div>
+      <div class="field">
+        <label>Nama Pembeli <span class="badge-opt">Opsional</span></label>
+        <input type="text" id="in-uname" placeholder="untuk catatan kamu">
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="grid-2">
+      <div class="field">
+        <label>Community / Group ID <span class="badge-opt">Opsional</span></label>
+        <input type="text" id="in-gid" placeholder="misal: 9876543">
+      </div>
+      <div class="field">
+        <label>Nama Community <span class="badge-opt">Opsional</span></label>
+        <input type="text" id="in-gname" placeholder="untuk catatan kamu">
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="field">
+      <label>Pilih Produk</label>
+      <div class="product-chips" id="prod-chips">
+        ${prods||'<span style="color:var(--muted);font-size:11px">Belum ada produk — tambah di Pengaturan</span>'}
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div id="action-log" class="log-box" style="margin-bottom:12px;display:none"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-primary" id="btn-add">
+        <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="2"><path d="M5.5 1v9M1 5.5h9"/></svg>
+        Tambah Akses
+      </button>
+      <button class="btn btn-danger" id="btn-remove">
+        <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 5.5h9"/></svg>
+        Cabut Akses
+      </button>
+    </div>
+  </div>`;
+}
+
+function renderUsers() {
+  if (!authorizedUsers.length) return `
+  <div class="section-head"><div class="section-title">Authorized Users</div></div>
+  <div class="empty">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+    <p>Belum ada user yang diauthorize.<br>Tambah lewat menu Kelola Akses.</p>
+  </div>`;
+
+  const rows = authorizedUsers.map(u => {
+    const pills = (u.products||[]).map(pid => {
+      const p = (settings.products||[]).find(x=>x.assetId===pid);
+      return `<span class="pill">${p?p.name:pid}</span>`;
+    }).join('');
+    const date = u.addedAt ? new Date(u.addedAt.seconds?u.addedAt.seconds*1000:u.addedAt).toLocaleDateString('id-ID') : '—';
+    return `
+    <div class="list-item">
+      <div class="list-avatar">👤</div>
+      <div class="list-info">
+        <div class="list-id">${u.name||'—'} <code>${u.userId}</code></div>
+        <div class="list-meta"><span>Ditambah: ${date}</span></div>
+        <div class="list-products">${pills}</div>
+      </div>
+      <div class="kebab-wrap">
+        <button class="kebab-btn" data-ktype="user" data-kid="${u.id}" data-uid="${u.userId}" data-name="${u.name||''}">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="3" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13" r="1.5"/></svg>
+        </button>
+        <div class="kebab-menu" id="kmenu-user-${u.id}">
+          <div class="kebab-action" onclick="copyToClipboard('${u.userId}')">
+            <svg viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="8" height="8" rx="1"/><path d="M1 9V2a1 1 0 0 1 1-1h7"/></svg>
+            Copy User ID
+          </div>
+          <div class="kebab-action" onclick="window.open('https://roblox.com/users/${u.userId}/profile','_blank')">
+            <svg viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 2H2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V8"/><path d="M8 1h4m0 0v4m0-4L5.5 7.5"/></svg>
+            Lihat Profil
+          </div>
+          <div class="kebab-action danger" onclick="confirmRemove('user','${u.id}','${u.userId}','${(u.products||[]).join(',')}')">
+            <svg viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3h9M5 3V2h3v1M4 3v7a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1V3"/></svg>
+            Remove Akses
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  return `
+  <div class="section-head">
+    <div class="section-title">Authorized Users <span style="color:var(--muted);font-size:13px">(${authorizedUsers.length})</span></div>
+    <button class="btn btn-ghost btn-sm" onclick="loadAuthorizedUsers();toast('Direfresh','info')">↻ Refresh</button>
+  </div>
+  ${rows}`;
+}
+
+function renderCommunities() {
+  if (!authorizedCommunities.length) return `
+  <div class="section-head"><div class="section-title">Authorized Communities</div></div>
+  <div class="empty">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="7" r="3"/><circle cx="15" cy="7" r="3"/><path d="M3 19c0-3 2.7-5 6-5m6 0c3.3 0 6 2 6 5"/><path d="M9 14c0-2.5 1.3-4 3-4s3 1.5 3 4"/></svg>
+    <p>Belum ada community yang diauthorize.<br>Tambah lewat menu Kelola Akses.</p>
+  </div>`;
+
+  const rows = authorizedCommunities.map(g => {
+    const pills = (g.products||[]).map(pid => {
+      const p = (settings.products||[]).find(x=>x.assetId===pid);
+      return `<span class="pill pill-green">${p?p.name:pid}</span>`;
+    }).join('');
+    const date = g.addedAt ? new Date(g.addedAt.seconds?g.addedAt.seconds*1000:g.addedAt).toLocaleDateString('id-ID') : '—';
+    return `
+    <div class="list-item">
+      <div class="list-avatar">🏘️</div>
+      <div class="list-info">
+        <div class="list-id">${g.name||'—'} <code>${g.groupId}</code></div>
+        <div class="list-meta"><span>Ditambah: ${date}</span></div>
+        <div class="list-products">${pills}</div>
+      </div>
+      <div class="kebab-wrap">
+        <button class="kebab-btn" data-ktype="community" data-kid="${g.id}" data-gid="${g.groupId}" data-name="${g.name||''}">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="3" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13" r="1.5"/></svg>
+        </button>
+        <div class="kebab-menu" id="kmenu-community-${g.id}">
+          <div class="kebab-action" onclick="copyToClipboard('${g.groupId}')">
+            <svg viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="8" height="8" rx="1"/><path d="M1 9V2a1 1 0 0 1 1-1h7"/></svg>
+            Copy Group ID
+          </div>
+          <div class="kebab-action" onclick="window.open('https://roblox.com/groups/${g.groupId}','_blank')">
+            <svg viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 2H2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V8"/><path d="M8 1h4m0 0v4m0-4L5.5 7.5"/></svg>
+            Lihat di Roblox
+          </div>
+          <div class="kebab-action danger" onclick="confirmRemove('community','${g.id}','${g.groupId}','${(g.products||[]).join(',')}')">
+            <svg viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3h9M5 3V2h3v1M4 3v7a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1V3"/></svg>
+            Remove Akses
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  return `
+  <div class="section-head">
+    <div class="section-title">Authorized Communities <span style="color:var(--muted);font-size:13px">(${authorizedCommunities.length})</span></div>
+    <button class="btn btn-ghost btn-sm" onclick="loadAuthorizedCommunities();toast('Direfresh','info')">↻ Refresh</button>
+  </div>
+  ${rows}`;
+}
+
+function renderSettings() {
+  const prods = (settings.products||[]);
+  const prodRows = prods.map((p,i) => `
+    <div class="product-row" id="prow-${i}">
+      <input type="text" value="${p.name}" placeholder="Nama Produk" onchange="settings.products[${i}].name=this.value">
+      <input type="text" value="${p.assetId}" placeholder="Asset ID" style="width:130px" onchange="settings.products[${i}].assetId=this.value">
+      <button class="btn btn-danger btn-sm" onclick="removeProduct(${i})">✕</button>
+    </div>`).join('');
+  return `
+  <div class="section-head"><div class="section-title">Pengaturan</div></div>
+  <div class="card">
+    <div class="settings-label">Roblox API Key</div>
+    <div class="field">
+      <input type="password" id="in-apikey" value="${settings.robloxApiKey||''}" placeholder="Paste API Key dari Creator Dashboard">
+    </div>
+    <div style="margin-top:8px;font-size:10px;color:var(--muted)">
+      Dapatkan di <a href="https://create.roblox.com/dashboard/credentials" target="_blank" style="color:var(--accent)">create.roblox.com → Credentials → API Keys</a>.<br>
+      Permission yang dibutuhkan: <code>asset-permissions:write</code>
+    </div>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <div class="settings-label">Daftar Produk</div>
+    <div class="product-list" id="prod-list">${prodRows||'<div style="color:var(--muted);font-size:11px">Belum ada produk.</div>'}</div>
+    <button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="addProduct()">+ Tambah Produk</button>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <div class="settings-label">Backup & Restore</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="exportData()">⬇ Export JSON</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('import-file').click()">⬆ Import JSON</button>
+      <input type="file" id="import-file" accept=".json" style="display:none">
+    </div>
+    <div style="margin-top:8px;font-size:10px;color:var(--muted)">Data disimpan di Firestore cloud — aman meskipun ganti browser/PC.</div>
+  </div>
+  <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
+    <button class="btn btn-primary" onclick="doSaveSettings()">Simpan Pengaturan</button>
+  </div>`;
+}
+
+// ══════════════════════════════════════════════════════
+//  AFTER RENDER HOOKS
+// ══════════════════════════════════════════════════════
+function afterRender(page) {
+  if (page === 'manage') {
+    // chip selection
+    document.querySelectorAll('#prod-chips .chip').forEach(chip => {
+      chip.addEventListener('click', () => chip.classList.toggle('selected'));
+    });
+    // add / remove buttons
+    document.getElementById('btn-add')?.addEventListener('click', () => doManage('Use'));
+    document.getElementById('btn-remove')?.addEventListener('click', () => doManage('Revoke'));
+  }
+  if (page === 'users' || page === 'communities') {
+    // kebab buttons
+    document.querySelectorAll('.kebab-btn').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const type = btn.dataset.ktype;
+        const id   = btn.dataset.kid;
+        const menu = document.getElementById(`kmenu-${type}-${id}`);
+        // close others
+        document.querySelectorAll('.kebab-menu.open').forEach(m => {
+          if (m !== menu) m.classList.remove('open');
+        });
+        menu.classList.toggle('open');
+      });
+    });
+    document.addEventListener('click', closeAllKebab, {once:true});
+  }
+  if (page === 'settings') {
+    document.getElementById('import-file').addEventListener('change', importData);
+  }
+}
+function closeAllKebab() {
+  document.querySelectorAll('.kebab-menu.open').forEach(m => m.classList.remove('open'));
+}
+
+// ══════════════════════════════════════════════════════
+//  MANAGE ACCESS
+// ══════════════════════════════════════════════════════
+async function doManage(action) {
+  const uid   = document.getElementById('in-uid')?.value.trim();
+  const uname = document.getElementById('in-uname')?.value.trim();
+  const gid   = document.getElementById('in-gid')?.value.trim();
+  const gname = document.getElementById('in-gname')?.value.trim();
+  const selectedProds = [...document.querySelectorAll('#prod-chips .chip.selected')].map(c=>({
+    assetId: c.dataset.pid, name: c.dataset.pname
+  }));
+
+  if (!uid) { toast('User ID wajib diisi!','error'); return; }
+  if (!selectedProds.length) { toast('Pilih minimal 1 produk','error'); return; }
+  if (!settings.robloxApiKey) { toast('API Key belum diisi di Pengaturan','error'); return; }
+
+  const logEl = document.getElementById('action-log');
+  logEl.style.display = 'block';
+  logEl.innerHTML = '';
+
+  function log(msg, cls='info') {
+    logEl.innerHTML += `<div class="log-${cls}">${msg}</div>`;
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  const btnAdd = document.getElementById('btn-add');
+  const btnRem = document.getElementById('btn-remove');
+  if(btnAdd) btnAdd.disabled = true;
+  if(btnRem) btnRem.disabled = true;
+
+  const productIds = selectedProds.map(p=>p.assetId);
+  let allOk = true;
+
+  for (const prod of selectedProds) {
+    // User
+    try {
+      await robloxSetPermission(prod.assetId, uid, 'User', action);
+      log(`✅ User ${uid} → ${prod.name}: ${action==='Use'?'ditambahkan':'dicabut'}`, 'ok');
+    } catch(e) {
+      log(`❌ User ${uid} → ${prod.name}: ${e.message}`, 'err');
+      allOk = false;
+    }
+    // Community
+    if (gid) {
+      try {
+        await robloxSetPermission(prod.assetId, gid, 'Group', action);
+        log(`✅ Group ${gid} → ${prod.name}: ${action==='Use'?'ditambahkan':'dicabut'}`, 'ok');
+      } catch(e) {
+        log(`❌ Group ${gid} → ${prod.name}: ${e.message}`, 'err');
+        allOk = false;
+      }
+    }
+  }
+
+  // Save to Firestore
+  const now = firebase.firestore.FieldValue.serverTimestamp();
+  if (action === 'Use') {
+    // Save user record
+    const uSnap = await usersCol().where('userId','==',uid).get();
+    if (uSnap.empty) {
+      await usersCol().add({ userId:uid, name:uname, products:productIds, addedAt:now });
+    } else {
+      const existing = uSnap.docs[0];
+      const merged   = [...new Set([...(existing.data().products||[]),...productIds])];
+      await existing.ref.update({ products:merged, name:uname||existing.data().name });
+    }
+    // Save community record
+    if (gid) {
+      const gSnap = await comCol().where('groupId','==',gid).get();
+      if (gSnap.empty) {
+        await comCol().add({ groupId:gid, name:gname, products:productIds, addedAt:now });
+      } else {
+        const existing = gSnap.docs[0];
+        const merged   = [...new Set([...(existing.data().products||[]),...productIds])];
+        await existing.ref.update({ products:merged, name:gname||existing.data().name });
+      }
+    }
+  } else {
+    // Revoke — remove from Firestore too
+    const uSnap = await usersCol().where('userId','==',uid).get();
+    uSnap.forEach(async doc => {
+      const remaining = (doc.data().products||[]).filter(p=>!productIds.includes(p));
+      if (!remaining.length) await doc.ref.delete();
+      else await doc.ref.update({ products:remaining });
+    });
+    if (gid) {
+      const gSnap = await comCol().where('groupId','==',gid).get();
+      gSnap.forEach(async doc => {
+        const remaining = (doc.data().products||[]).filter(p=>!productIds.includes(p));
+        if (!remaining.length) await doc.ref.delete();
+        else await doc.ref.update({ products:remaining });
+      });
+    }
+  }
+
+  if(btnAdd) btnAdd.disabled = false;
+  if(btnRem) btnRem.disabled = false;
+
+  toast(allOk ? 'Selesai!' : 'Selesai dengan beberapa error', allOk?'success':'error');
+  await loadAuthorizedUsers();
+  await loadAuthorizedCommunities();
+}
+
+// ══════════════════════════════════════════════════════
+//  REMOVE CONFIRM
+// ══════════════════════════════════════════════════════
+let _pendingRemove = null;
+function confirmRemove(type, docId, subjectId, productsCsv) {
+  closeAllKebab();
+  _pendingRemove = { type, docId, subjectId, products: productsCsv ? productsCsv.split(',').filter(Boolean) : [] };
+  const label = type==='user' ? `User ID <strong>${subjectId}</strong>` : `Group ID <strong>${subjectId}</strong>`;
+  document.getElementById('confirm-title').textContent = 'Remove Akses';
+  document.getElementById('confirm-body').innerHTML    = `Yakin ingin mencabut akses ${label}? Ini akan memanggil Roblox API untuk semua produk yang terdaftar.`;
+  document.getElementById('confirm-modal').classList.add('open');
+}
+document.getElementById('confirm-cancel').addEventListener('click', () => {
+  document.getElementById('confirm-modal').classList.remove('open');
+  _pendingRemove = null;
+});
+document.getElementById('confirm-ok').addEventListener('click', async () => {
+  document.getElementById('confirm-modal').classList.remove('open');
+  if (!_pendingRemove) return;
+  const { type, docId, subjectId, products } = _pendingRemove;
+  _pendingRemove = null;
+
+  const subType = type === 'user' ? 'User' : 'Group';
+  let allOk = true;
+
+  for (const pid of products) {
+    try {
+      await robloxSetPermission(pid, subjectId, subType, 'Revoke');
+    } catch(e) {
+      allOk = false;
+      toast(`Error revoke ${pid}: ${e.message}`, 'error');
+    }
+  }
+
+  const col = type === 'user' ? usersCol() : comCol();
+  await col.doc(docId).delete().catch(console.error);
+  await (type === 'user' ? loadAuthorizedUsers() : loadAuthorizedCommunities());
+  toast(allOk ? 'Akses berhasil dicabut' : 'Dicabut dengan error', allOk?'success':'error');
+});
+
+// ══════════════════════════════════════════════════════
+//  SETTINGS ACTIONS
+// ══════════════════════════════════════════════════════
+async function doSaveSettings() {
+  settings.robloxApiKey = document.getElementById('in-apikey')?.value.trim() || settings.robloxApiKey;
+  await saveSettings();
+  toast('Pengaturan tersimpan','success');
+}
+function addProduct() {
+  if (!settings.products) settings.products = [];
+  settings.products.push({ name:'', assetId:'' });
+  navigateTo('settings');
+}
+function removeProduct(i) {
+  settings.products.splice(i,1);
+  navigateTo('settings');
+}
+async function exportData() {
+  const data = { settings, authorizedUsers, authorizedCommunities, exportedAt: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `ssstudio-whitelist-backup-${Date.now()}.json`;
+  a.click();
+}
+function importData(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (data.settings) { settings = data.settings; await saveSettings(); }
+      if (data.authorizedUsers) {
+        for (const u of data.authorizedUsers) {
+          const {id,...rest} = u;
+          await usersCol().doc(id).set({...rest});
+        }
+        await loadAuthorizedUsers();
+      }
+      if (data.authorizedCommunities) {
+        for (const g of data.authorizedCommunities) {
+          const {id,...rest} = g;
+          await comCol().doc(id).set({...rest});
+        }
+        await loadAuthorizedCommunities();
+      }
+      toast('Import berhasil!','success');
+      navigateTo(currentPage);
+    } catch(err) {
+      toast('Gagal import: '+err.message,'error');
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ══════════════════════════════════════════════════════
+//  UTILITIES
+// ══════════════════════════════════════════════════════
+function toast(msg, type='info') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.getElementById('toast-wrap').appendChild(el);
+  setTimeout(()=>el.remove(), 3000);
+}
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(()=>toast('Disalin!','success')).catch(()=>{
+    const t = document.createElement('textarea');
+    t.value = text; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove();
+    toast('Disalin!','success');
+  });
+  closeAllKebab();
+}
+</script>
+</body>
+</html>
