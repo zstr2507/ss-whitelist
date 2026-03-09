@@ -1,0 +1,2946 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SS Studio — Whitelist Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- Firebase Compat SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:       #07090F;
+  --bg2:      #0B0E1A;
+  --surface:  #0F1422;
+  --surface2: #141826;
+  --surface3: #1A2030;
+  --border:   rgba(99,102,241,0.18);
+  --border2:  rgba(255,255,255,0.07);
+  --accent:   #6366F1;
+  --accent2:  #818CF8;
+  --accent3:  #C7D2FE;
+  --teal:     #14B8A6;
+  --green:    #10B981;
+  --amber:    #F59E0B;
+  --red:      #EF4444;
+  --text:     #F1F5F9;
+  --text2:    #8B9AB5;
+  --text3:    #4A5568;
+  --mono:     'JetBrains Mono', monospace;
+  --font:     'Plus Jakarta Sans', sans-serif;
+  --display:  'Plus Jakarta Sans', sans-serif;
+  --radius:   14px;
+  --radius2:  10px;
+  --radius3:  7px;
+  --shadow:   0 8px 32px rgba(0,0,0,0.5);
+  --shadow2:  0 2px 10px rgba(0,0,0,0.35);
+  --sidebar-w: 282px;
+  --topbar-h: 66px;
+  --transition: 0.18s cubic-bezier(0.4,0,0.2,1);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 15px; scroll-behavior: smooth; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+/* ══ INPUT SPINNER REMOVE ══ */
+input[type=number] { -moz-appearance: textfield; }
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* ══ LOGIN SCREEN ══ */
+#loginScreen {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: #07090F; z-index: 9999;
+  overflow: hidden;
+}
+/* Animated mesh background */
+#loginScreen::before {
+  content: '';
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 60% 55% at 20% 20%, rgba(99,102,241,0.22) 0%, transparent 65%),
+    radial-gradient(ellipse 50% 45% at 80% 80%, rgba(20,184,166,0.16) 0%, transparent 65%),
+    radial-gradient(ellipse 40% 40% at 70% 15%, rgba(139,92,246,0.12) 0%, transparent 60%);
+  pointer-events: none;
+}
+#loginScreen::after {
+  content: '';
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(99,102,241,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99,102,241,0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 0%, transparent 100%);
+}
+/* Floating orbs */
+.login-orb {
+  position: absolute; border-radius: 50%; pointer-events: none;
+  filter: blur(60px); animation: orbFloat 8s ease-in-out infinite;
+}
+.login-orb-1 {
+  width: 380px; height: 380px;
+  background: rgba(99,102,241,0.18);
+  top: -80px; left: -80px;
+  animation-delay: 0s;
+}
+.login-orb-2 {
+  width: 300px; height: 300px;
+  background: rgba(20,184,166,0.14);
+  bottom: -60px; right: -60px;
+  animation-delay: -3s;
+}
+.login-orb-3 {
+  width: 200px; height: 200px;
+  background: rgba(139,92,246,0.12);
+  top: 30%; right: 15%;
+  animation-delay: -5s;
+}
+@keyframes orbFloat {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(20px, -20px) scale(1.05); }
+  66% { transform: translate(-15px, 15px) scale(0.97); }
+}
+.login-card {
+  background: rgba(15, 20, 34, 0.75);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(99,102,241,0.25);
+  border-radius: 28px;
+  padding: 52px 52px 48px;
+  width: 100%; max-width: 460px;
+  text-align: center;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.04) inset,
+    0 24px 80px rgba(0,0,0,0.6),
+    0 0 100px rgba(99,102,241,0.1);
+  position: relative; z-index: 1;
+  animation: cardAppear 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes cardAppear {
+  from { opacity: 0; transform: translateY(28px) scale(0.96); }
+  to   { opacity: 1; transform: none; }
+}
+/* Logo badge */
+/* Logo formal */
+.login-logo-wrap { display: flex; justify-content: center; margin-bottom: 32px; }
+.login-logo-formal {
+  display: flex; align-items: center; gap: 14px;
+  animation: badgePop 0.5s 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes badgePop {
+  from { opacity: 0; transform: scale(0.85) translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+.login-logo-icon {
+  width: 52px; height: 52px;
+  background: rgba(99,102,241,0.1);
+  border: 1px solid rgba(99,102,241,0.25);
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.login-logo-text { text-align: left; }
+.login-logo-name {
+  display: block;
+  font-family: var(--display); font-weight: 800; font-size: 20px;
+  color: var(--text); letter-spacing: -0.01em; line-height: 1;
+}
+.login-logo-tagline {
+  display: block;
+  font-size: 12px; color: var(--text3);
+  letter-spacing: 0.06em; text-transform: uppercase;
+  font-weight: 600; margin-top: 4px;
+}
+/* Title */
+.login-title {
+  font-family: var(--font);
+  font-size: 26px; font-weight: 700; line-height: 1.25;
+  color: var(--text);
+  margin-bottom: 10px;
+  letter-spacing: -0.01em;
+  animation: fadeUp 0.5s 0.25s ease both;
+}
+.login-title span {
+  background: linear-gradient(135deg, var(--accent2), var(--teal));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.login-sub {
+  font-size: 14.5px; color: var(--text2); line-height: 1.7;
+  margin-bottom: 38px;
+  animation: fadeUp 0.5s 0.3s ease both;
+}
+/* Divider line */
+.login-divider {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 28px;
+  animation: fadeUp 0.5s 0.35s ease both;
+}
+.login-divider::before, .login-divider::after {
+  content: ''; flex: 1; height: 1px;
+  background: rgba(255,255,255,0.07);
+}
+.login-divider span { font-size: 12px; color: var(--text3); white-space: nowrap; }
+/* Google button */
+.btn-google {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  width: 100%; padding: 15px 20px;
+  background: #fff; color: #1a1a2e;
+  border: none; border-radius: 14px;
+  font-family: var(--font);
+  font-size: 15.5px; font-weight: 700;
+  cursor: pointer; transition: all 0.2s ease;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3), 0 1px 0 rgba(255,255,255,0.1) inset;
+  animation: fadeUp 0.5s 0.4s ease both;
+  position: relative; overflow: hidden;
+}
+.btn-google::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(20,184,166,0.05));
+  opacity: 0; transition: opacity 0.2s;
+}
+.btn-google:hover::before { opacity: 1; }
+.btn-google:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.15) inset;
+}
+.btn-google:active { transform: translateY(0); }
+.btn-google svg { width: 22px; height: 22px; flex-shrink: 0; }
+/* Footer note */
+.login-note {
+  margin-top: 22px; font-size: 12px; color: var(--text3);
+  animation: fadeUp 0.5s 0.45s ease both;
+}
+.login-note a { color: var(--accent2); text-decoration: none; }
+/* Status dots at bottom */
+.login-status {
+  display: flex; justify-content: center; gap: 16px; margin-top: 28px;
+  animation: fadeUp 0.5s 0.5s ease both;
+}
+.login-status-item {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11.5px; color: var(--text3);
+}
+.login-status-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 8px rgba(16,185,129,0.6);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ══ APP SHELL ══ */
+#appShell { display: none; height: 100vh; overflow: hidden; }
+#appShell.active { display: flex; }
+
+/* ══ SIDEBAR ══ */
+.sidebar {
+  width: var(--sidebar-w);
+  background: var(--bg2);
+  border-right: 1px solid var(--border2);
+  display: flex; flex-direction: column;
+  flex-shrink: 0;
+  transition: transform var(--transition);
+  position: relative; z-index: 100;
+}
+.sidebar-head {
+  padding: 24px 20px 20px;
+  display: flex; align-items: center; gap: 12px;
+  border-bottom: 1px solid var(--border2);
+}
+.sidebar-brand {
+  font-family: var(--display);
+  font-weight: 800; font-size: 16px; color: var(--text);
+}
+.sidebar-version {
+  font-size: 11px; color: var(--text3);
+  margin-top: 1px;
+}
+.sidebar-nav {
+  flex: 1; padding: 16px 12px; overflow-y: auto;
+}
+.nav-section { margin-bottom: 28px; }
+.nav-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--text3);
+  padding: 0 10px; margin-bottom: 8px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; border-radius: var(--radius2);
+  cursor: pointer; transition: var(--transition);
+  color: var(--text2); font-size: 15px; font-weight: 500;
+  position: relative; margin-bottom: 2px;
+}
+.nav-item:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+.nav-item.active {
+  background: rgba(99,102,241,0.14);
+  color: var(--accent2);
+  font-weight: 600;
+}
+.nav-item.active .nav-icon { color: var(--accent2); }
+.nav-item.active::before {
+  content: '';
+  position: absolute; left: 0; top: 25%; bottom: 25%;
+  width: 3px; border-radius: 0 3px 3px 0;
+  background: var(--accent2);
+}
+.nav-icon { width: 20px; height: 20px; flex-shrink: 0; }
+.nav-badge {
+  margin-left: auto;
+  background: var(--accent);
+  color: #fff; font-size: 11px; font-weight: 700;
+  padding: 2px 8px; border-radius: 20px;
+  min-width: 22px; text-align: center;
+}
+.sidebar-footer {
+  padding: 14px 12px;
+  border-top: 1px solid var(--border2);
+}
+.user-chip {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: var(--radius2);
+  cursor: pointer; transition: var(--transition);
+}
+.user-chip:hover { background: rgba(255,255,255,0.05); }
+.user-avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--teal));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0;
+  overflow: hidden;
+}
+.user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.user-info { flex: 1; min-width: 0; }
+.user-name { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-role { font-size: 11px; color: var(--teal); font-weight: 500; margin-top: 1px; }
+
+/* ══ BACKGROUND CUSTOMIZATION ══ */
+:root {
+  --bg-image: none;
+  --bg-overlay: rgba(7,9,15,0.88);
+}
+/* Main content area gets the custom background */
+.main {
+  flex: 1; display: flex; flex-direction: column; overflow: hidden;
+  background: var(--bg);
+  position: relative;
+}
+.main::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image: var(--bg-image);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  opacity: 1;
+  z-index: 0;
+  pointer-events: none;
+}
+.main::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: var(--bg-image, transparent) center/cover no-repeat;
+  display: none;
+}
+/* When bg image is set, overlay the content area */
+body.has-bg-image .main { background: transparent; }
+body.has-bg-image .main::before {
+  background: var(--bg-overlay);
+  z-index: 0;
+}
+body.has-bg-image .topbar {
+  background: rgba(7,9,15,0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom-color: rgba(255,255,255,0.06);
+}
+body.has-bg-image .card,
+body.has-bg-image .stat-card,
+body.has-bg-image .list-item {
+  background: rgba(15,20,34,0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+body.has-bg-image .page { position: relative; z-index: 1; }
+body.has-bg-image .topbar { position: relative; z-index: 1; }
+/* bg image layer behind main content */
+.main-bg-layer {
+  position: absolute; inset: 0;
+  background-size: cover; background-position: center;
+  background-attachment: fixed;
+  z-index: 0;
+}
+.main-bg-overlay {
+  position: absolute; inset: 0;
+  background: var(--bg-overlay);
+  z-index: 1;
+}
+/* Ensure all direct children of main sit above bg */
+.topbar, .page { position: relative; z-index: 2; }
+
+/* ══ TOPBAR ══ */
+.topbar {
+  min-height: var(--topbar-h);
+  padding: 0 28px;
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--border2);
+  background: var(--bg);
+  flex-shrink: 0; position: relative; z-index: 10;
+}
+.topbar-left { display: flex; align-items: center; gap: 14px; }
+.hamburger {
+  display: none; padding: 8px; border-radius: 8px;
+  background: transparent; border: none;
+  color: var(--text2); cursor: pointer; transition: var(--transition);
+}
+.hamburger:hover { background: var(--surface2); color: var(--text); }
+.page-title {
+  font-family: var(--display);
+  font-size: 22px; font-weight: 800; color: var(--text);
+}
+.page-sub { font-size: 13px; color: var(--text2); margin-top: 2px; }
+.topbar-right { display: flex; align-items: center; gap: 12px; }
+.clock-widget {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  padding: 8px 16px;
+}
+.clock-icon { display: none; }
+.clock-text {
+  font-family: var(--mono); font-size: 19px; font-weight: 800;
+  color: var(--accent2); letter-spacing: 0.08em; line-height: 1;
+  text-shadow: 0 0 12px rgba(129,140,248,0.45), 0 0 28px rgba(129,140,248,0.15);
+  font-variant-numeric: tabular-nums;
+}
+.clock-text .colon { animation: blinkColon 1s step-end infinite; }
+@keyframes blinkColon { 0%,100%{opacity:1} 50%{opacity:0.15} }
+.clock-date { font-size: 11px; color: var(--text3); margin-top: 3px; letter-spacing: 0.02em; }
+.btn-icon {
+  width: 38px; height: 38px;
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: 10px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text2); transition: var(--transition);
+}
+.btn-icon:hover { color: var(--text); border-color: var(--border); background: var(--surface2); }
+
+/* ══ LANG SWITCHER ══ */
+.lang-switcher { position: relative; }
+.lang-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: 10px; padding: 7px 12px;
+  cursor: pointer; color: var(--text2);
+  font-size: 13px; font-weight: 600;
+  transition: var(--transition); white-space: nowrap;
+}
+.lang-btn:hover { border-color: var(--border); color: var(--text); background: var(--surface2); }
+.lang-dropdown {
+  position: absolute; top: calc(100% + 6px); right: 0;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  min-width: 170px; z-index: 200;
+  opacity: 0; pointer-events: none; transform: translateY(-6px);
+  transition: opacity 0.18s, transform 0.18s;
+}
+.lang-dropdown.open { opacity: 1; pointer-events: all; transform: translateY(0); }
+.lang-option {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; font-size: 13.5px; color: var(--text2);
+  cursor: pointer; transition: var(--transition);
+}
+.lang-option:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+.lang-option.active { color: var(--accent2); }
+.lang-option.active::after { content: '✓'; margin-left: auto; font-size: 12px; }
+.btn-icon svg { width: 16px; height: 16px; }
+
+/* ══ PAGES ══ */
+.page { display: none; flex: 1; overflow-y: auto; padding: 28px 32px; position: relative; z-index: 10; }
+.page.active { display: block; }
+
+/* ══ STAT CARDS ══ */
+.stats-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 18px; margin-bottom: 24px;
+}
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  padding: 22px 24px;
+  position: relative; overflow: hidden;
+  transition: var(--transition);
+}
+.stat-card:hover { border-color: var(--border); transform: translateY(-2px); box-shadow: var(--shadow2); }
+.stat-card::before {
+  content: ''; position: absolute;
+  top: 0; right: 0;
+  width: 100px; height: 100px;
+  border-radius: 50%; opacity: 0.07;
+  transform: translate(25px, -25px);
+}
+.stat-card.c1::before { background: var(--accent); }
+.stat-card.c2::before { background: var(--teal); }
+.stat-card.c3::before { background: var(--amber); }
+.stat-card.c4::before { background: var(--green); }
+.stat-label {
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.09em; color: var(--text2); margin-bottom: 10px;
+}
+.stat-value {
+  font-family: var(--display);
+  font-size: 40px; font-weight: 800; color: var(--text);
+  line-height: 1; margin-bottom: 10px;
+}
+.stat-icon {
+  position: absolute; top: 20px; right: 20px;
+  width: 38px; height: 38px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+}
+.stat-icon svg { width: 19px; height: 19px; }
+.stat-card.c1 .stat-icon { background: rgba(99,102,241,0.15); color: var(--accent2); }
+.stat-card.c2 .stat-icon { background: rgba(20,184,166,0.15); color: var(--teal); }
+.stat-card.c3 .stat-icon { background: rgba(245,158,11,0.15); color: var(--amber); }
+.stat-card.c4 .stat-icon { background: rgba(16,185,129,0.15); color: var(--green); }
+.stat-trend { font-size: 12px; color: var(--text2); }
+.stat-trend.up { color: var(--green); }
+.stat-trend.down { color: var(--red); }
+
+/* ══ CHARTS ══ */
+.charts-row {
+  display: grid; grid-template-columns: 2fr 1fr;
+  gap: 18px; margin-bottom: 24px;
+}
+.chart-row2 {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 18px; margin-bottom: 24px;
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  padding: 22px 24px;
+}
+.card-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 18px;
+}
+.card-title { font-family: var(--display); font-size: 16px; font-weight: 700; color: var(--text); }
+.card-sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.chart-wrap { position: relative; }
+
+/* ══ ACTIVITY FEED ══ */
+.activity-list { display: flex; flex-direction: column; }
+.activity-item {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border2);
+}
+.activity-item:last-child { border-bottom: none; }
+.activity-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  flex-shrink: 0; margin-top: 5px;
+}
+.activity-dot.add { background: var(--green); box-shadow: 0 0 8px rgba(16,185,129,0.5); }
+.activity-dot.remove { background: var(--red); box-shadow: 0 0 8px rgba(239,68,68,0.5); }
+.activity-body { flex: 1; }
+.activity-text { font-size: 13.5px; color: var(--text); line-height: 1.5; }
+.activity-text strong { color: var(--accent2); }
+.activity-time { font-size: 11.5px; color: var(--text3); margin-top: 3px; font-family: var(--mono); }
+
+/* ══ TABLE ══ */
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th {
+  text-align: left; font-size: 11.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text3); padding: 10px 14px;
+  border-bottom: 1px solid var(--border2);
+}
+.data-table td {
+  padding: 13px 14px; font-size: 13.5px; color: var(--text2);
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+.data-table tr:hover td { background: rgba(255,255,255,0.02); }
+.data-table .mono { font-family: var(--mono); font-size: 12px; color: var(--text3); }
+
+/* ══ SEARCH BAR ══ */
+.search-bar {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius2);
+  padding: 12px 16px;
+  margin-bottom: 18px;
+  transition: var(--transition);
+}
+.search-bar:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+.search-bar svg { width: 17px; height: 17px; color: var(--text3); flex-shrink: 0; }
+.search-bar input {
+  flex: 1; background: none; border: none; outline: none;
+  font-family: var(--font);
+  font-size: 14.5px; color: var(--text);
+}
+.search-bar input::placeholder { color: var(--text3); }
+
+/* ══ LIST ITEMS ══ */
+.list-item {
+  display: flex; align-items: center; gap: 14px;
+  padding: 16px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius2);
+  margin-bottom: 10px;
+  transition: var(--transition);
+  position: relative;
+}
+.list-item { z-index: 1; }
+.list-item:has(.kebab-menu.open) { z-index: 100; }
+.list-item:hover { border-color: var(--border); background: var(--surface2); }
+.list-avatar {
+  width: 46px; height: 46px; border-radius: 12px;
+  background: var(--surface2);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; overflow: hidden;
+  font-size: 17px; font-weight: 700; font-family: var(--display);
+  color: var(--text2);
+}
+.list-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.list-info { flex: 1; min-width: 0; }
+.list-name { font-size: 15px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.list-id { font-family: var(--mono); font-size: 12px; color: var(--text3); margin-top: 3px; }
+.list-tags { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 7px; }
+.tag {
+  font-size: 11.5px; font-weight: 700;
+  padding: 3px 10px; border-radius: 20px;
+  font-family: var(--font); letter-spacing: 0.01em;
+}
+.tag.prod { background: rgba(99,102,241,0.15); color: var(--accent2); border: 1px solid rgba(99,102,241,0.2); }
+.tag.date { background: rgba(255,255,255,0.05); color: var(--text3); }
+
+/* ══ KEBAB MENU ══ */
+.kebab-btn {
+  width: 34px; height: 34px;
+  background: none; border: none;
+  border-radius: 8px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text3); transition: var(--transition);
+  flex-shrink: 0;
+}
+.kebab-btn:hover { background: var(--surface2); color: var(--text); }
+.kebab-btn svg { width: 16px; height: 16px; }
+.kebab-menu {
+  position: absolute; right: 12px; top: calc(100% - 6px);
+  background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: var(--radius2); box-shadow: var(--shadow);
+  z-index: 200; min-width: 175px; overflow: hidden;
+  display: none;
+}
+.kebab-menu.open { display: block; }
+.kebab-menu-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 14px; font-size: 14px; color: var(--text2);
+  cursor: pointer; transition: var(--transition);
+}
+.kebab-menu-item:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+.kebab-menu-item.danger { color: var(--red); }
+.kebab-menu-item.danger:hover { background: rgba(239,68,68,0.08); }
+.kebab-menu-item svg { width: 15px; height: 15px; flex-shrink: 0; }
+
+/* ══ FORM ELEMENTS ══ */
+.form-section { margin-bottom: 24px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.form-group { display: flex; flex-direction: column; gap: 7px; }
+.form-group.full { grid-column: 1 / -1; }
+.form-label {
+  font-size: 13px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--text2);
+}
+.form-label span { color: var(--red); margin-left: 2px; }
+.form-input {
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius2);
+  padding: 12px 14px;
+  font-family: var(--font);
+  font-size: 15px; color: var(--text);
+  outline: none; transition: var(--transition);
+  width: 100%;
+}
+.form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,0.12); }
+.form-input::placeholder { color: var(--text3); }
+.form-input.mono { font-family: var(--mono); font-size: 13px; }
+.form-input.success { border-color: var(--green); }
+.form-input.loading { border-color: var(--amber); }
+.form-input.error-state { border-color: var(--red); }
+.form-hint { font-size: 12px; color: var(--text3); margin-top: 3px; }
+.form-hint.success { color: var(--green); }
+.form-hint.error { color: var(--red); }
+.input-with-btn { display: flex; gap: 10px; align-items: flex-start; }
+.input-with-btn .form-input { flex: 1; }
+
+/* ══ PRODUCT CHIPS ══ */
+.product-chips { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+.product-chip {
+  display: flex; align-items: center; gap: 7px;
+  padding: 9px 16px;
+  background: var(--surface2);
+  border: 1.5px solid var(--border2);
+  border-radius: 24px;
+  cursor: pointer; transition: var(--transition);
+  font-size: 13.5px; font-weight: 600;
+  color: var(--text2); user-select: none;
+}
+.product-chip:hover { border-color: var(--accent); color: var(--text); }
+.product-chip.selected {
+  background: rgba(99,102,241,0.15);
+  border-color: var(--accent);
+  color: var(--accent2);
+}
+.product-chip .chip-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: currentColor; flex-shrink: 0;
+}
+
+/* ══ BUTTONS ══ */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 22px; border-radius: var(--radius2);
+  font-family: var(--font);
+  font-size: 14.5px; font-weight: 600;
+  cursor: pointer; transition: var(--transition);
+  border: none; white-space: nowrap;
+}
+.btn svg { width: 16px; height: 16px; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: #5558E8; transform: translateY(-1px); box-shadow: 0 5px 20px rgba(99,102,241,0.4); }
+.btn-secondary {
+  background: var(--surface2);
+  border: 1.5px solid var(--border2);
+  color: var(--text2);
+}
+.btn-secondary:hover { border-color: var(--border); color: var(--text); background: var(--surface3); }
+.btn-danger { background: rgba(239,68,68,0.12); color: var(--red); border: 1.5px solid rgba(239,68,68,0.25); }
+.btn-danger:hover { background: rgba(239,68,68,0.22); }
+.btn-sync {
+  background: rgba(20,184,166,0.12);
+  border: 1.5px solid rgba(20,184,166,0.25);
+  color: var(--teal); padding: 12px 18px;
+  border-radius: var(--radius2);
+  font-family: var(--font);
+  font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: var(--transition);
+  display: flex; align-items: center; gap: 7px;
+  white-space: nowrap;
+}
+.btn-sync:hover { background: rgba(20,184,166,0.22); transform: translateY(-1px); }
+.btn-sync.loading { pointer-events: none; opacity: 0.6; }
+.btn-sync svg { width: 15px; height: 15px; }
+.btn-row { display: flex; gap: 10px; margin-top: 24px; flex-wrap: wrap; }
+
+/* ══ EMPTY STATE ══ */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 60px 24px; text-align: center;
+}
+.empty-icon {
+  width: 64px; height: 64px;
+  background: var(--surface2); border-radius: 18px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 18px;
+}
+.empty-icon svg { width: 28px; height: 28px; color: var(--text3); }
+.empty-title { font-family: var(--display); font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 7px; }
+.empty-desc { font-size: 14px; color: var(--text2); max-width: 300px; line-height: 1.7; }
+
+/* ══ MODAL ══ */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.75);
+  display: none; align-items: center; justify-content: center;
+  z-index: 1000; backdrop-filter: blur(5px);
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 32px; width: 100%; max-width: 440px;
+  box-shadow: var(--shadow);
+  animation: modalIn 0.18s ease;
+}
+@keyframes modalIn { from { opacity:0; transform:scale(0.94) translateY(10px); } to { opacity:1; transform:none; } }
+.modal-icon {
+  width: 54px; height: 54px;
+  background: rgba(239,68,68,0.12);
+  border-radius: 14px; margin-bottom: 18px;
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-icon svg { width: 24px; height: 24px; color: var(--red); }
+.modal-title { font-family: var(--display); font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 10px; }
+.modal-desc { font-size: 14px; color: var(--text2); line-height: 1.7; margin-bottom: 28px; }
+.modal-target { font-weight: 700; color: var(--text); }
+.modal-actions { display: flex; gap: 10px; }
+.modal-actions .btn { flex: 1; justify-content: center; }
+
+/* ══ TOAST ══ */
+#toastContainer {
+  position: fixed; bottom: 28px; right: 28px;
+  z-index: 9000; display: flex; flex-direction: column;
+  gap: 9px; pointer-events: none;
+}
+.toast {
+  display: flex; align-items: center; gap: 11px;
+  padding: 14px 18px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius2);
+  box-shadow: var(--shadow);
+  font-size: 14px; font-weight: 500;
+  color: var(--text); max-width: 340px;
+  animation: toastIn 0.22s ease;
+  pointer-events: all;
+}
+.toast.removing { animation: toastOut 0.2s ease forwards; }
+@keyframes toastIn { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:none; } }
+@keyframes toastOut { from { opacity:1; transform:none; } to { opacity:0; transform:translateX(20px); } }
+.toast-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.toast.success .toast-dot { background: var(--green); box-shadow: 0 0 8px rgba(16,185,129,0.6); }
+.toast.error .toast-dot { background: var(--red); box-shadow: 0 0 8px rgba(239,68,68,0.6); }
+.toast.info .toast-dot { background: var(--accent2); box-shadow: 0 0 8px rgba(129,140,248,0.6); }
+.toast.warn .toast-dot { background: var(--amber); box-shadow: 0 0 8px rgba(245,158,11,0.6); }
+
+/* ══ SECURITY SECTION ══ */
+.security-card {
+  background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(20,184,166,0.05));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px 24px; margin-bottom: 20px;
+}
+.security-item {
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border2);
+}
+.security-item:last-child { border-bottom: none; padding-bottom: 0; }
+.security-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 6px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; margin-bottom: 5px;
+}
+.security-badge.safe { background: rgba(16,185,129,0.15); color: var(--green); }
+.security-badge.warn { background: rgba(245,158,11,0.15); color: var(--amber); }
+.security-icon { width: 22px; height: 22px; flex-shrink: 0; margin-top: 2px; }
+
+/* ══ SETTINGS ══ */
+.settings-section { margin-bottom: 32px; }
+.settings-title {
+  font-family: var(--display);
+  font-size: 16px; font-weight: 700; color: var(--text);
+  margin-bottom: 16px; padding-bottom: 12px;
+  border-bottom: 1px solid var(--border2);
+  display: flex; align-items: center; gap: 10px;
+}
+.settings-title svg { width: 18px; height: 18px; color: var(--accent2); }
+.product-manage { display: flex; flex-direction: column; gap: 10px; }
+.product-manage-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 18px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius2);
+  transition: var(--transition);
+}
+.product-manage-item:hover { border-color: var(--border); }
+.product-manage-item .mono-id { font-family: var(--mono); font-size: 13px; color: var(--accent2); flex: 1; }
+.product-manage-item .prod-name { font-size: 14px; color: var(--text2); }
+
+/* ══ QUICK ACTIONS ══ */
+.quick-actions {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 14px; margin-bottom: 24px;
+}
+.quick-action {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 10px; padding: 20px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  cursor: pointer; transition: var(--transition);
+  text-align: center;
+}
+.quick-action:hover { border-color: var(--border); transform: translateY(-2px); background: var(--surface2); box-shadow: var(--shadow2); }
+.quick-action-icon {
+  width: 44px; height: 44px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+}
+.quick-action-icon svg { width: 20px; height: 20px; }
+.quick-action-label { font-size: 13px; font-weight: 600; color: var(--text2); }
+
+/* ══ BADGE ══ */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 700;
+  padding: 3px 9px; border-radius: 20px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.badge.active { background: rgba(16,185,129,0.15); color: var(--green); }
+.badge.inactive { background: rgba(239,68,68,0.12); color: var(--red); }
+
+/* ══ INFO ALERT ══ */
+.info-alert {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 14px 16px;
+  background: rgba(99,102,241,0.08);
+  border: 1px solid rgba(99,102,241,0.2);
+  border-radius: var(--radius2);
+  margin-bottom: 20px;
+}
+.info-alert svg { width: 16px; height: 16px; color: var(--accent2); flex-shrink: 0; margin-top: 2px; }
+.info-alert p { font-size: 13.5px; color: var(--text2); line-height: 1.7; }
+.info-alert p strong { color: var(--accent2); }
+
+/* ══ TABS ══ */
+.tab-bar {
+  display: flex; gap: 3px; margin-bottom: 22px;
+  background: var(--surface); border-radius: var(--radius2);
+  padding: 4px; border: 1px solid var(--border2);
+}
+.tab-item {
+  flex: 1; text-align: center;
+  padding: 10px 14px; border-radius: var(--radius3);
+  font-size: 14px; font-weight: 600; color: var(--text2);
+  cursor: pointer; transition: var(--transition);
+}
+.tab-item.active { background: var(--surface2); color: var(--text); }
+.tab-item:hover:not(.active) { color: var(--text); }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ══ OVERVIEW GRID ══ */
+.overview-bottom { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+
+/* ══ SPINNER ══ */
+.spinner {
+  width: 16px; height: 16px;
+  border: 2px solid rgba(255,255,255,0.15);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ══ KELOLA SECTION ══ */
+.kelola-section {
+  padding: 18px 0 4px;
+}
+.kelola-section-label {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 700; color: var(--text2);
+  text-transform: uppercase; letter-spacing: 0.07em;
+  margin-bottom: 14px;
+}
+.kelola-section-label svg { width: 15px; height: 15px; color: var(--accent2); }
+.kelola-divider {
+  display: flex; align-items: center; gap: 12px;
+  margin: 8px 0;
+}
+.kelola-divider::before, .kelola-divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--border2);
+}
+.kelola-divider span {
+  font-size: 13px; font-weight: 700; color: var(--text2);
+  white-space: nowrap;
+}
+
+/* ══ RESPONSIVE ══ */
+@media (max-width: 1200px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .quick-actions { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 900px) {
+  .charts-row { grid-template-columns: 1fr; }
+  .chart-row2 { grid-template-columns: 1fr; }
+  .overview-bottom { grid-template-columns: 1fr; }
+}
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0;
+    transform: translateX(-100%);
+    box-shadow: 4px 0 32px rgba(0,0,0,0.5);
+  }
+  .sidebar.open { transform: translateX(0); }
+  .hamburger { display: flex; }
+  .main { width: 100%; }
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .page { padding: 18px 20px; }
+  .form-row { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+  .stats-grid { grid-template-columns: 1fr; }
+  .quick-actions { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ══ MOBILE OVERLAY ══ */
+.sidebar-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.55); z-index: 99;
+}
+.sidebar-overlay.open { display: block; }
+
+/* ══ SKELETON ══ */
+.skeleton {
+  background: linear-gradient(90deg, var(--surface2) 25%, rgba(255,255,255,0.04) 50%, var(--surface2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 6px;
+}
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+</style>
+</head>
+<body>
+
+<!-- ══ LOGIN SCREEN ══ -->
+<div id="loginScreen">
+  <!-- Floating orbs -->
+  <div class="login-orb login-orb-1"></div>
+  <div class="login-orb login-orb-2"></div>
+  <div class="login-orb login-orb-3"></div>
+
+  <div class="login-card">
+    <!-- Logo -->
+    <div class="login-logo-wrap">
+      <div class="login-logo-formal">
+        <div class="login-logo-icon">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <path d="M4 8C4 5.79 5.79 4 8 4h5v6H8a4 4 0 0 1-4-4z" fill="url(#lg1)"/>
+            <path d="M13 4h7c2.21 0 4 1.79 4 4s-1.79 4-4 4h-7V4z" fill="url(#lg2)" opacity="0.7"/>
+            <path d="M4 20c0-2.21 1.79-4 4-4h5v8H8c-2.21 0-4-1.79-4-4z" fill="url(#lg2)" opacity="0.7"/>
+            <path d="M13 16h7c2.21 0 4 1.79 4 4s-1.79 4-4 4h-7v-8z" fill="url(#lg1)"/>
+            <defs>
+              <linearGradient id="lg1" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#818CF8"/>
+                <stop offset="100%" stop-color="#14B8A6"/>
+              </linearGradient>
+              <linearGradient id="lg2" x1="28" y1="0" x2="0" y2="28" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#6366F1"/>
+                <stop offset="100%" stop-color="#0EA5E9"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div class="login-logo-text">
+          <span class="login-logo-name">SS Studio</span>
+          <span class="login-logo-tagline">Whitelist System</span>
+        </div>
+      </div>
+    </div>
+
+    <h1 class="login-title">Whitelist <span>Manager</span></h1>
+    <p class="login-sub">Dashboard manajemen akses.<br>Sign in dengan akun admin untuk melanjutkan.</p>
+
+    <div class="login-divider"><span>Autentikasi Admin</span></div>
+
+    <button class="btn-google" onclick="signInWithGoogle()">
+      <svg viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+      Masuk dengan Google
+    </button>
+
+    <div class="login-status">
+      <div class="login-status-item">
+        <div class="login-status-dot"></div>
+        <span>Firebase Online</span>
+      </div>
+      <div class="login-status-item" style="color:var(--text3)">
+        <span>·</span>
+        <span>Hanya akun admin</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ APP SHELL ══ -->
+<div id="appShell">
+  <!-- Sidebar Overlay -->
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-head">
+      <img src="Ss_Studio_Pot.png" alt="SS" style="width:38px;height:38px;object-fit:contain;border-radius:10px">
+      <div>
+        <div class="sidebar-brand">SS Studio</div>
+        <div class="sidebar-version">Whitelist v2.0</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">
+        <div class="nav-label">Overview</div>
+        <div class="nav-item active" data-page="dashboard" onclick="navigate(this)">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          Dashboard
+        </div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Manajemen</div>
+        <div class="nav-item" data-page="kelola" onclick="navigate(this)">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+          Kelola Akses
+        </div>
+        <div class="nav-item" data-page="users" onclick="navigate(this)">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Authorized Users
+          <span class="nav-badge" id="navBadgeUsers">0</span>
+        </div>
+        <div class="nav-item" data-page="communities" onclick="navigate(this)">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          Communities
+          <span class="nav-badge" id="navBadgeCom">0</span>
+        </div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Sistem</div>
+        <div class="nav-item" data-page="settings" onclick="navigate(this)">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Pengaturan
+        </div>
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-chip" onclick="confirmSignOut()">
+        <div class="user-avatar" id="userAvatar">?</div>
+        <div class="user-info">
+          <div class="user-name" id="userName">Loading...</div>
+          <div class="user-role">Admin</div>
+        </div>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <!-- Background layers -->
+    <div id="mainBgLayer" style="display:none;position:absolute;inset:0;background-size:cover;background-position:center;background-attachment:fixed;z-index:0;pointer-events:none"></div>
+    <div id="mainBgOverlay" style="display:none;position:absolute;inset:0;z-index:1;pointer-events:none"></div>
+    <!-- Topbar -->
+    <div class="topbar">
+      <div class="topbar-left">
+        <button class="hamburger" onclick="toggleSidebar()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div>
+          <div class="page-title" id="pageTitle">Dashboard</div>
+          <div class="page-sub" id="pageSub">Overview aktivitas whitelist</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="clock-widget">
+          <div>
+            <div class="clock-text" id="clockTime">00<span class="colon">:</span>00<span class="colon">:</span>00</div>
+            <div class="clock-date" id="clockDate">—</div>
+          </div>
+        </div>
+        <button class="btn-icon" onclick="refreshAll()" title="Refresh data">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </button>
+        <button class="btn-icon" onclick="exportData()" title="Export JSON">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </button>
+        <!-- Language Switcher -->
+        <div class="lang-switcher" id="langSwitcher">
+          <button class="lang-btn" onclick="toggleLangDropdown()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            <span id="langLabel">ID</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;opacity:0.5;flex-shrink:0"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="lang-dropdown" id="langDropdown">
+            <div class="lang-option active" onclick="selectLang('id','ID','🇮🇩','Bahasa Indonesia')">
+              <span>🇮🇩</span> Bahasa Indonesia
+            </div>
+            <div class="lang-option" onclick="selectLang('en','EN','🇬🇧','English')">
+              <span>🇬🇧</span> English
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pages -->
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="stats-grid">
+        <div class="stat-card c1">
+          <div class="stat-label">Users</div>
+          <div class="stat-value" id="statUsers">0</div>
+          <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+          <div class="stat-trend" id="statUsersTrend">—</div>
+        </div>
+        <div class="stat-card c2">
+          <div class="stat-label">Communities</div>
+          <div class="stat-value" id="statComs">0</div>
+          <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>
+          <div class="stat-trend" id="statComsTrend">—</div>
+        </div>
+        <div class="stat-card c3">
+          <div class="stat-label">Products</div>
+          <div class="stat-value" id="statProds">0</div>
+          <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></div>
+          <div class="stat-trend" id="statProdsTrend">—</div>
+        </div>
+        <div class="stat-card c4">
+          <div class="stat-label">Total Authorized</div>
+          <div class="stat-value" id="statTotal">0</div>
+          <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+          <div class="stat-trend" id="statTotalTrend">—</div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="quick-actions">
+        <div class="quick-action" onclick="navigate(document.querySelector('[data-page=kelola]'))">
+          <div class="quick-action-icon" style="background:rgba(99,102,241,0.15)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent2)" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+          </div>
+          <span class="quick-action-label">Tambah Akses</span>
+        </div>
+        <div class="quick-action" onclick="navigate(document.querySelector('[data-page=users]'))">
+          <div class="quick-action-icon" style="background:rgba(20,184,166,0.12)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          </div>
+          <span class="quick-action-label">Lihat Users</span>
+        </div>
+        <div class="quick-action" onclick="exportData()">
+          <div class="quick-action-icon" style="background:rgba(245,158,11,0.12)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          </div>
+          <span class="quick-action-label">Export Data</span>
+        </div>
+        <div class="quick-action" onclick="triggerImport()">
+          <div class="quick-action-icon" style="background:rgba(16,185,129,0.12)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          </div>
+          <span class="quick-action-label">Import Data</span>
+        </div>
+      </div>
+
+      <div class="charts-row">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">Aktivitas 7 Hari</div>
+              <div class="card-sub" id="chartSubLine">Berdasarkan data Firestore</div>
+            </div>
+          </div>
+          <div class="chart-wrap" style="height:200px">
+            <canvas id="chartLine"></canvas>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">Distribusi</div>
+              <div class="card-sub">Users vs Communities</div>
+            </div>
+          </div>
+          <div class="chart-wrap" style="height:200px; display:flex; align-items:center; justify-content:center;">
+            <canvas id="chartDonut" style="max-height:190px"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="overview-bottom">
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">Aktivitas Terbaru</div>
+          </div>
+          <div class="activity-list" id="activityList">
+            <div class="empty-state" style="padding:24px">
+              <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+              <div class="empty-desc">Memuat aktivitas...</div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">Products Terdaftar</div>
+          </div>
+          <table class="data-table" id="productTable">
+            <thead><tr><th>Asset ID</th><th>Status</th></tr></thead>
+            <tbody id="productTableBody">
+              <tr><td colspan="2" style="text-align:center;color:var(--text3)">Memuat...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- KELOLA AKSES -->
+    <div class="page" id="page-kelola">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Tambah Otorisasi</div>
+            <div class="card-sub">User ID wajib · Community ID opsional</div>
+          </div>
+        </div>
+        <div class="info-alert">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <p>Isi <strong>User ID</strong> untuk authorize user. <strong>Community ID</strong> opsional — bisa dikosongkan. Kedua data bisa disubmit sekaligus dalam satu klik.</p>
+        </div>
+
+        <!-- Section: User -->
+        <div class="kelola-section">
+          <div class="kelola-section-label">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            User <span style="color:var(--red);margin-left:2px">*</span>
+          </div>
+          <div class="form-row" style="margin-bottom:0">
+            <div class="form-group">
+              <label class="form-label">User ID Roblox <span>*</span></label>
+              <div class="input-with-btn">
+                <input type="text" class="form-input mono" id="addUserId" placeholder="Contoh: 12345678" oninput="handleUserIdInput()">
+                <button class="btn-sync" onclick="syncRobloxUser()" id="btnSyncUser">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                  Auto
+                </button>
+              </div>
+              <div class="form-hint" id="hintUser">Ketik User ID — username akan muncul otomatis</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Username</label>
+              <input type="text" class="form-input" id="addUserName" placeholder="Akan terisi otomatis..." readonly>
+            </div>
+          </div>
+        </div>
+
+        <!-- Divider -->
+        <div class="kelola-divider">
+          <span>Community <span style="color:var(--text3);font-weight:400;font-size:12px">(opsional)</span></span>
+        </div>
+
+        <!-- Section: Community -->
+        <div class="kelola-section">
+          <div class="kelola-section-label">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            Community <span style="color:var(--text3);font-size:12px;font-weight:400;margin-left:4px">— opsional, bisa dikosongkan</span>
+          </div>
+          <div class="form-row" style="margin-bottom:0">
+            <div class="form-group">
+              <label class="form-label">Group ID Roblox</label>
+              <div class="input-with-btn">
+                <input type="text" class="form-input mono" id="addComId" placeholder="Contoh: 7654321" oninput="handleComIdInput()">
+                <button class="btn-sync" onclick="syncRobloxGroup()" id="btnSyncCom">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                  Auto
+                </button>
+              </div>
+              <div class="form-hint" id="hintCom">Ketik Group ID — nama akan muncul otomatis</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Nama Group</label>
+              <input type="text" class="form-input" id="addComName" placeholder="Akan terisi otomatis..." readonly>
+            </div>
+          </div>
+        </div>
+
+        <!-- Products -->
+        <div style="margin-top:20px">
+          <label class="form-label" style="margin-bottom:10px;display:block">Pilih Products <span>*</span></label>
+          <div class="product-chips" id="userProductChips"></div>
+          <!-- hidden chips for community (reuse same selection) -->
+          <div id="comProductChips" style="display:none"></div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="addBoth()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+            Tambah Otorisasi
+          </button>
+          <button class="btn btn-secondary" onclick="clearBothForms()">Bersihkan</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- AUTHORIZED USERS -->
+    <div class="page" id="page-users">
+      <div class="search-bar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" placeholder="Cari username atau User ID..." id="searchUsers" oninput="filterUsers()">
+      </div>
+      <div id="usersList">
+        <div class="empty-state">
+          <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+          <div class="empty-title">Memuat data...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AUTHORIZED COMMUNITIES -->
+    <div class="page" id="page-communities">
+      <div class="search-bar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" placeholder="Cari nama group atau Group ID..." id="searchComs" oninput="filterComs()">
+      </div>
+      <div id="comsList">
+        <div class="empty-state">
+          <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>
+          <div class="empty-title">Memuat data...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="page" id="page-settings">
+      <!-- Cloudflare Worker -->
+      <div class="settings-section">
+        <div class="settings-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.2 8.4c.5.38.8.97.8 1.6 0 1.1-.9 2-2 2H4c-.55 0-1.05-.22-1.41-.59"/><path d="M5.6 10.97c-.07-.12-.1-.25-.1-.38a2 2 0 0 1 3.83-.93c.48-.26 1.03-.42 1.61-.42a4 4 0 0 1 4 4H13"/><path d="M12.57 7.2c.17-.18.37-.33.59-.43"/><path d="M5 12h14"/></svg>
+          Cloudflare Worker Proxy
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Worker URL</label>
+            <input type="url" class="form-input" id="settingWorkerUrl" placeholder="https://your-worker.workers.dev">
+            <div class="form-hint">URL Cloudflare Worker untuk proxy API Roblox</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Secret Token</label>
+            <input type="password" class="form-input mono" id="settingToken" placeholder="Token rahasia worker">
+            <div class="form-hint">Token untuk autentikasi ke worker</div>
+          </div>
+        </div>
+        <div class="info-alert" style="margin-top:8px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <p>Auto-sync nama Roblox (User/Group) memerlukan worker yang mendukung endpoint: <strong>GET ?action=getRobloxUser&userId=ID</strong> dan <strong>GET ?action=getRobloxGroup&groupId=ID</strong>. Tanpa worker, nama akan diisi manual.</p>
+        </div>
+      </div>
+
+      <!-- Products -->
+      <div class="settings-section">
+        <div class="settings-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+          Daftar Products / Asset IDs
+        </div>
+        <div class="info-alert">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <p>Asset ID di sini harus <strong>sama persis</strong> dengan <code style="font-family:var(--mono);color:var(--accent2)">PRODUCT_ID</code> di Lua script. Default: <code style="font-family:var(--mono);color:var(--accent2)">139533900123768</code></p>
+        </div>
+        <div class="product-manage" id="productManageList"></div>
+        <div class="form-row" style="margin-top:14px">
+          <div class="form-group">
+            <label class="form-label">Asset ID Baru</label>
+            <input type="text" class="form-input mono" id="newProductId" placeholder="Contoh: 139533900123768">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Nama Asset</label>
+            <input type="text" class="form-input" id="newProductName" placeholder="Contoh: AvatarMenu System">
+          </div>
+        </div>
+        <button class="btn btn-secondary" onclick="addProduct()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Tambah Product
+        </button>
+      </div>
+
+      <!-- Background Customization -->
+      <div class="settings-section">
+        <div class="settings-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          Background Konten
+        </div>
+        <div class="info-alert" style="margin-bottom:14px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <p>Background hanya diterapkan di area konten tengah. Sidebar tetap solid. Gunakan URL gambar dari GitHub raw atau CDN publik.</p>
+        </div>
+        <div class="form-row">
+          <div class="form-group full">
+            <label class="form-label">URL Gambar Background</label>
+            <div class="input-with-btn">
+              <input type="url" class="form-input" id="settingBgImage" placeholder="https://raw.githubusercontent.com/...">
+              <button class="btn btn-secondary" onclick="previewBg()" style="white-space:nowrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                Preview
+              </button>
+              <button class="btn btn-secondary" onclick="clearBg()" style="white-space:nowrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                Hapus
+              </button>
+            </div>
+            <div class="form-hint">Contoh: https://raw.githubusercontent.com/user/repo/main/bg.jpg</div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Opacity Overlay</label>
+            <div style="display:flex;align-items:center;gap:12px">
+              <input type="range" id="settingBgOpacity" min="50" max="95" value="88" step="1"
+                oninput="updateBgOpacity(this.value)"
+                style="flex:1;accent-color:var(--accent);cursor:pointer;height:4px">
+              <span id="bgOpacityLabel" style="font-family:var(--mono);font-size:13px;color:var(--accent2);min-width:36px">88%</span>
+            </div>
+            <div class="form-hint">Makin tinggi = konten makin gelap, teks makin terbaca</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Preview Background</label>
+            <div id="bgPreviewBox" style="
+              width:100%;height:64px;border-radius:var(--radius2);
+              background:var(--surface2);border:1px solid var(--border2);
+              display:flex;align-items:center;justify-content:center;
+              font-size:12px;color:var(--text3);overflow:hidden;position:relative;
+            ">
+              <span id="bgPreviewLabel">Belum ada background</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Google Sheets -->
+      <div class="settings-section">
+        <div class="settings-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          Google Sheets Integration
+        </div>
+        <div class="form-group">
+          <label class="form-label">Sheets URL</label>
+          <input type="url" class="form-input" id="settingSheets" placeholder="https://docs.google.com/spreadsheets/...">
+          <div class="form-hint">Link Google Sheets untuk logging (opsional)</div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="saveSettings()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Simpan Pengaturan
+        </button>
+      </div>
+
+      <!-- SECURITY EXPLANATION -->
+      <hr class="divider">
+      <div class="settings-section">
+        <div class="settings-title security-toggle" onclick="toggleSecurity()" style="cursor:pointer;user-select:none;justify-content:space-between">
+          <span style="display:flex;align-items:center;gap:10px">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Keamanan Server & Skenario Login
+          </span>
+          <svg id="securityChevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;color:var(--text3);transition:transform 0.3s;flex-shrink:0"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div id="securityBody" style="overflow:hidden;max-height:0;transition:max-height 0.35s cubic-bezier(0.4,0,0.2,1)">
+        <div class="security-card">
+          <p style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.7">
+            Sistem whitelist ini menggunakan <strong style="color:var(--accent2)">Firebase Authentication + Firestore</strong>. Otorisasi berbasis <strong style="color:var(--teal)">Place Owner</strong> (bukan per-player), artinya jika place owner sudah diizinkan, <em>semua</em> player di map itu bisa pakai asset.
+          </p>
+          <div class="security-item">
+            <svg class="security-icon" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            <div style="flex:1">
+              <div class="security-badge safe">✓ Aman</div>
+              <div style="font-size:13.5px;font-weight:600;color:var(--text);margin-bottom:4px">Ganti PC / Browser</div>
+              <div style="font-size:12.5px;color:var(--text2);line-height:1.6">Login ulang dengan akun Google yang sama → akses penuh. Firebase Auth berbasis akun Google, bukan device. Sesi otomatis restore jika belum expire.</div>
+            </div>
+          </div>
+          <div class="security-item">
+            <svg class="security-icon" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+            <div style="flex:1">
+              <div class="security-badge safe">✓ Aman</div>
+              <div style="font-size:13.5px;font-weight:600;color:var(--text);margin-bottom:4px">Pakai HP (Mobile)</div>
+              <div style="font-size:12.5px;color:var(--text2);line-height:1.6">Buka URL dashboard di browser HP → Sign In Google → berfungsi normal. Dashboard sudah responsif untuk mobile. Data Firestore real-time di semua device.</div>
+            </div>
+          </div>
+          <div class="security-item">
+            <svg class="security-icon" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <div style="flex:1">
+              <div class="security-badge warn">⚠ Perhatian</div>
+              <div style="font-size:13.5px;font-weight:600;color:var(--text);margin-bottom:4px">Multi-Login (Banyak Tab/Browser)</div>
+              <div style="font-size:12.5px;color:var(--text2);line-height:1.6">Firebase mendukung multi-session. Jika login di banyak device sekaligus, perubahan di satu device langsung real-time di semua device lainnya via Firestore listener. Tidak ada konflik data.</div>
+            </div>
+          </div>
+          <div class="security-item">
+            <svg class="security-icon" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <div style="flex:1">
+              <div class="security-badge safe">✓ Aman</div>
+              <div style="font-size:13.5px;font-weight:600;color:var(--text);margin-bottom:4px">Keamanan Roblox Asset</div>
+              <div style="font-size:12.5px;color:var(--text2);line-height:1.6">Script server hanya baca Firestore dengan API key yang terbindung ke project spesifik. Orang lain tidak bisa mengakses data whitelist tanpa credentials Firebase. OWNER_UID dikodekan di script, sehingga hanya data owner yang terbaca.</div>
+            </div>
+          </div>
+          <div class="security-item">
+            <svg class="security-icon" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <div style="flex:1">
+              <div class="security-badge safe">✓ Aman</div>
+              <div style="font-size:13.5px;font-weight:600;color:var(--text);margin-bottom:4px">Otorisasi Place-Level</div>
+              <div style="font-size:12.5px;color:var(--text2);line-height:1.6">Pengecekan dilakukan saat server Roblox startup (sekali). PLACE_AUTHORIZED disimpan di memori server. Semua player yang join map tersebut mendapat status yang sama — tidak perlu cek per-player sehingga efisien dan aman.</div>
+            </div>
+          </div>
+        </div>
+        </div><!-- /securityBody -->
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /appShell -->
+
+<!-- MODAL KONFIRMASI HAPUS -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal">
+    <div class="modal-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+    </div>
+    <div class="modal-title">Konfirmasi Hapus</div>
+    <div class="modal-desc">Apakah kamu yakin ingin mencabut akses dari <span class="modal-target" id="modalTargetName">—</span>? Tindakan ini tidak dapat dibatalkan.</div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal()">Batal</button>
+      <button class="btn btn-danger" onclick="confirmDelete()">Hapus</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div id="toastContainer"></div>
+
+<!-- IMPORT INPUT (hidden) -->
+<input type="file" id="importInput" accept=".json" style="display:none" onchange="importData(this)">
+
+<script>
+// ══════════════════════════════════════════════
+//  FIREBASE CONFIG — isi nilai dari Firebase Console
+// ══════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey:            "AIzaSyBUTcNMzcEBup7dV245bSpIz6dp0I8paCg",
+  authDomain:        "ss-studio-2660f.firebaseapp.com",
+  projectId:         "ss-studio-2660f",
+  storageBucket:     "ss-studio-2660f.firebasestorage.app",
+  messagingSenderId: "164655528970",
+  appId:             "1:164655528970:web:bc626fb265cb1313f973f3",
+  measurementId:     "G-323513XJXK"
+};
+
+// ══════════════════════════════════════════════
+//  CONSTANTS
+// ══════════════════════════════════════════════
+const OWNER_UID    = "xT8bfPc73ZODPPMRG117Ye4ubaU2"; // harus sama dengan script Lua
+const PRODUCT_ID   = "139533900123768";               // harus sama dengan PRODUCT_ID di script Lua
+const PRODUCT_LABEL= "AvatarMenu System";             // nama tampilan (tidak mempengaruhi fungsi)
+
+// ══════════════════════════════════════════════
+//  FIREBASE INIT
+// ══════════════════════════════════════════════
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+
+// Firestore paths helper
+const colUsers  = () => db.collection(`users/${OWNER_UID}/authorizedUsers`);
+const colComs   = () => db.collection(`users/${OWNER_UID}/authorizedCommunities`);
+const docSettings = () => db.doc(`users/${OWNER_UID}/data/settings`);
+
+// ══════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════
+let allUsers = [], allComs = [];
+let settingsData = { workerUrl:'', secretToken:'', products:[], sheetsUrl:'', bgImage:'', bgOpacity:88 };
+let chartLine = null, chartDonut = null;
+let unsubUsers = null, unsubComs = null;
+let pendingDelete = null; // {type, docId, name}
+let userSynced = false, comSynced = false;
+
+// ══════════════════════════════════════════════
+//  AUTH
+// ══════════════════════════════════════════════
+auth.onAuthStateChanged(async user => {
+  if (user) {
+    if (user.uid !== OWNER_UID) {
+      showToast("Akun ini tidak memiliki akses admin.", 'error');
+      await auth.signOut();
+      return;
+    }
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('appShell').classList.add('active');
+    // Update user UI
+    const nameEl = document.getElementById('userName');
+    const avatarEl = document.getElementById('userAvatar');
+    nameEl.textContent = user.displayName || user.email || 'Admin';
+    if (user.photoURL) {
+      avatarEl.innerHTML = `<img src="${user.photoURL}" alt="avatar">`;
+    } else {
+      avatarEl.textContent = (user.displayName || 'A')[0].toUpperCase();
+    }
+    initApp();
+  } else {
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('appShell').classList.remove('active');
+    cleanupListeners();
+  }
+});
+
+function signInWithGoogle() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider).catch(err => {
+    if (err.code === 'auth/popup-blocked') {
+      auth.signInWithRedirect(provider);
+    } else {
+      showToast('Login gagal: ' + err.message, 'error');
+    }
+  });
+}
+
+function confirmSignOut() {
+  if (confirm('Yakin ingin keluar?')) auth.signOut();
+}
+
+// ══════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════
+async function initApp() {
+  startClock();
+  await loadSettings();
+  listenUsers();
+  listenComs();
+  renderProductChips();
+  renderProductTable();
+}
+
+function cleanupListeners() {
+  if (unsubUsers) { unsubUsers(); unsubUsers = null; }
+  if (unsubComs)  { unsubComs();  unsubComs  = null; }
+}
+
+// ══════════════════════════════════════════════
+//  SETTINGS
+// ══════════════════════════════════════════════
+async function loadSettings() {
+  try {
+    const snap = await docSettings().get();
+    if (snap.exists) {
+      settingsData = { workerUrl:'', secretToken:'', products:[], sheetsUrl:'', bgImage:'', bgOpacity:88, ...snap.data() };
+    }
+    // Ensure default product
+    if (!settingsData.products || settingsData.products.length === 0) {
+      settingsData.products = [{ id: PRODUCT_ID, name: PRODUCT_LABEL }];
+    }
+    // Normalize: konversi produk lama yang tersimpan sebagai plain string ke {id, name}
+    settingsData.products = settingsData.products.map(p => {
+      if (typeof p === 'string') return { id: p, name: p };
+      if (!p.id && p.name) return { id: p.name, name: p.name };
+      if (!p.id) return null;
+      return { id: String(p.id), name: p.name || String(p.id) };
+    }).filter(Boolean);
+    applySettingsToUI();
+  } catch(e) {
+    console.warn('loadSettings error', e);
+    settingsData.products = [{ id: PRODUCT_ID, name: PRODUCT_LABEL }];
+  }
+}
+
+function applySettingsToUI() {
+  document.getElementById('settingWorkerUrl').value = settingsData.workerUrl || '';
+  document.getElementById('settingToken').value     = settingsData.secretToken || '';
+  document.getElementById('settingSheets').value    = settingsData.sheetsUrl || '';
+  document.getElementById('settingBgImage').value   = settingsData.bgImage || '';
+  const op = settingsData.bgOpacity ?? 88;
+  document.getElementById('settingBgOpacity').value = op;
+  document.getElementById('bgOpacityLabel').textContent = op + '%';
+  applyBgToApp(settingsData.bgImage || '', op);
+  renderProductManage();
+  renderProductChips();
+  renderProductTable();
+}
+
+async function saveSettings() {
+  settingsData.workerUrl    = document.getElementById('settingWorkerUrl').value.trim();
+  settingsData.secretToken  = document.getElementById('settingToken').value.trim();
+  settingsData.sheetsUrl    = document.getElementById('settingSheets').value.trim();
+  settingsData.bgImage      = document.getElementById('settingBgImage').value.trim();
+  settingsData.bgOpacity    = parseInt(document.getElementById('settingBgOpacity').value) || 88;
+  try {
+    await docSettings().set(settingsData, { merge: true });
+    applyBgToApp(settingsData.bgImage, settingsData.bgOpacity);
+    showToast('Pengaturan berhasil disimpan!', 'success');
+    renderProductChips();
+  } catch(e) {
+    showToast('Gagal simpan: ' + e.message, 'error');
+  }
+}
+
+function addProduct() {
+  const idEl = document.getElementById('newProductId');
+  const nameEl = document.getElementById('newProductName');
+  const id = idEl.value.trim();
+  const name = nameEl.value.trim();
+  if (!id) { showToast('Asset ID tidak boleh kosong', 'warn'); return; }
+  if (settingsData.products.find(p => p.id === id)) {
+    // Jika ID sama tapi nama beda → update nama
+    const existing = settingsData.products.find(p => p.id === id);
+    if (name && name !== existing.name) {
+      existing.name = name;
+      idEl.value = ''; nameEl.value = '';
+      renderProductManage();
+      renderProductChips();
+      _saveProductsToFirestore();
+      showToast(`Nama product diperbarui: ${name}`, 'success');
+    } else {
+      showToast('Asset ID sudah ada', 'warn');
+    }
+    return;
+  }
+  settingsData.products.push({ id, name: name || id });
+  idEl.value = ''; nameEl.value = '';
+  renderProductManage();
+  renderProductChips();
+  _saveProductsToFirestore();
+  showToast(`Product ditambahkan: ${name || id}`, 'success');
+}
+
+async function _saveProductsToFirestore() {
+  try {
+    await docSettings().set({ products: settingsData.products }, { merge: true });
+  } catch(e) {
+    showToast('Gagal simpan ke Firestore: ' + e.message, 'error');
+  }
+}
+
+async function removeProduct(id) {
+  if (!id) { showToast('ID tidak valid', 'warn'); return; }
+  const before = settingsData.products.length;
+  settingsData.products = settingsData.products.filter(p => p.id !== id);
+  if (settingsData.products.length === before) {
+    showToast('Product tidak ditemukan', 'warn'); return;
+  }
+  renderProductManage();
+  renderProductChips();
+  await _saveProductsToFirestore();
+  showToast('Product berhasil dihapus', 'success');
+}
+
+function renderProductManage() {
+  const el = document.getElementById('productManageList');
+  if (!settingsData.products || settingsData.products.length === 0) {
+    el.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:8px 0">Belum ada product. Tambahkan di bawah.</div>';
+    return;
+  }
+  el.innerHTML = settingsData.products.map(p => `
+    <div class="product-manage-item" id="pitem-${escH(p.id)}">
+      <span class="mono-id">${escH(p.id)}</span>
+      <span class="prod-name" id="pname-display-${escH(p.id)}">${escH(p.name)}</span>
+      <input type="text" class="form-input prod-name-edit" id="pname-input-${escH(p.id)}"
+        value="${escH(p.name)}" style="display:none;max-width:200px;padding:6px 10px;font-size:13px"
+        onkeydown="if(event.key==='Enter')saveProductName('${escH(p.id)}');if(event.key==='Escape')cancelEditProduct('${escH(p.id)}')">
+      <button class="btn btn-secondary" style="padding:5px 12px;font-size:12px" id="pedit-btn-${escH(p.id)}" onclick="startEditProduct('${escH(p.id)}')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Edit
+      </button>
+      <button class="btn btn-primary" style="padding:5px 12px;font-size:12px;display:none" id="psave-btn-${escH(p.id)}" onclick="saveProductName('${escH(p.id)}')">Simpan</button>
+      <button class="btn btn-secondary" style="padding:5px 12px;font-size:12px;display:none" id="pcancel-btn-${escH(p.id)}" onclick="cancelEditProduct('${escH(p.id)}')">Batal</button>
+      <button class="btn btn-danger" style="padding:5px 12px;font-size:12px" onclick="removeProduct('${escH(p.id)}')">Hapus</button>
+    </div>
+  `).join('');
+}
+
+function startEditProduct(id) {
+  document.getElementById(`pname-display-${id}`).style.display = 'none';
+  document.getElementById(`pname-input-${id}`).style.display = 'block';
+  document.getElementById(`pedit-btn-${id}`).style.display = 'none';
+  document.getElementById(`psave-btn-${id}`).style.display = 'inline-flex';
+  document.getElementById(`pcancel-btn-${id}`).style.display = 'inline-flex';
+  document.getElementById(`pname-input-${id}`).focus();
+  document.getElementById(`pname-input-${id}`).select();
+}
+
+function cancelEditProduct(id) {
+  const p = settingsData.products.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById(`pname-input-${id}`).value = p.name;
+  document.getElementById(`pname-display-${id}`).style.display = '';
+  document.getElementById(`pname-input-${id}`).style.display = 'none';
+  document.getElementById(`pedit-btn-${id}`).style.display = '';
+  document.getElementById(`psave-btn-${id}`).style.display = 'none';
+  document.getElementById(`pcancel-btn-${id}`).style.display = 'none';
+}
+
+async function saveProductName(id) {
+  const newName = document.getElementById(`pname-input-${id}`).value.trim();
+  if (!newName) { showToast('Nama tidak boleh kosong', 'warn'); return; }
+  const p = settingsData.products.find(x => x.id === id);
+  if (!p) return;
+  p.name = newName;
+  await _saveProductsToFirestore();
+  renderProductManage();
+  renderProductChips();
+  renderProductTable();
+  showToast(`Nama berhasil diubah ke "${newName}"`, 'success');
+}
+
+function renderProductChips() {
+  // Main visible chips in userProductChips
+  const el = document.getElementById('userProductChips');
+  if (!settingsData.products || settingsData.products.length === 0) {
+    el.innerHTML = '<div style="color:var(--text3);font-size:13px">Tambahkan produk di halaman Pengaturan terlebih dahulu.</div>';
+    return;
+  }
+  el.innerHTML = settingsData.products.map(p => `
+    <div class="product-chip" data-id="${escH(p.id)}" onclick="toggleChip(this,'userProductChips')">
+      <div class="chip-dot"></div>${escH(p.name)}
+    </div>
+  `).join('');
+  // Keep comProductChips in sync (hidden, same data)
+  const el2 = document.getElementById('comProductChips');
+  if (el2) el2.innerHTML = el.innerHTML.replace(/userProductChips/g, 'comProductChips');
+}
+
+function renderProductTable() {
+  const tbody = document.getElementById('productTableBody');
+  if (!settingsData.products || settingsData.products.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;color:var(--text3)">Belum ada product</td></tr>';
+    return;
+  }
+  tbody.innerHTML = settingsData.products.map(p => `
+    <tr>
+      <td class="mono">${escH(p.id)}<br><span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${escH(p.name)}</span></td>
+      <td><span class="badge active">● Aktif</span></td>
+    </tr>
+  `).join('');
+}
+
+function toggleChip(el, containerId) {
+  el.classList.toggle('selected');
+}
+
+function getSelectedProducts(containerId) {
+  const chips = document.querySelectorAll(`#${containerId} .product-chip.selected`);
+  return Array.from(chips).map(c => c.dataset.id);
+}
+
+// ══════════════════════════════════════════════
+//  ROBLOX AUTO-SYNC
+// ══════════════════════════════════════════════
+async function syncRobloxUser() {
+  const userId = document.getElementById('addUserId').value.trim();
+  if (!userId) { showToast('Masukkan User ID terlebih dahulu', 'warn'); return; }
+  const btn = document.getElementById('btnSyncUser');
+  const hint = document.getElementById('hintUser');
+  const nameEl = document.getElementById('addUserId');
+  btn.classList.add('loading');
+  btn.innerHTML = '<div class="spinner"></div> Auto...';
+  hint.textContent = 'Mengambil data dari Roblox...';
+  hint.className = 'form-hint';
+  document.getElementById('addUserName').value = '';
+
+  const username = await fetchRobloxUser(userId);
+  btn.classList.remove('loading');
+  btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Auto`;
+
+  if (username) {
+    document.getElementById('addUserName').value = username;
+    hint.textContent = `✓ Ditemukan: ${username}`;
+    hint.className = 'form-hint success';
+    document.getElementById('addUserId').className = 'form-input mono success';
+    userSynced = true;
+  } else {
+    hint.textContent = 'User tidak ditemukan. Periksa User ID atau konfigurasi Worker.';
+    hint.className = 'form-hint error';
+    document.getElementById('addUserId').className = 'form-input mono error-state';
+    userSynced = false;
+  }
+}
+
+async function syncRobloxGroup() {
+  const groupId = document.getElementById('addComId').value.trim();
+  if (!groupId) { showToast('Masukkan Group ID terlebih dahulu', 'warn'); return; }
+  const btn = document.getElementById('btnSyncCom');
+  const hint = document.getElementById('hintCom');
+  btn.classList.add('loading');
+  btn.innerHTML = '<div class="spinner"></div> Auto...';
+  hint.textContent = 'Mengambil data dari Roblox...';
+  hint.className = 'form-hint';
+  document.getElementById('addComName').value = '';
+
+  const name = await fetchRobloxGroup(groupId);
+  btn.classList.remove('loading');
+  btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Auto`;
+
+  if (name) {
+    document.getElementById('addComName').value = name;
+    hint.textContent = `✓ Ditemukan: ${name}`;
+    hint.className = 'form-hint success';
+    document.getElementById('addComId').className = 'form-input mono success';
+    comSynced = true;
+  } else {
+    hint.textContent = 'Group tidak ditemukan. Periksa Group ID atau konfigurasi Worker.';
+    hint.className = 'form-hint error';
+    document.getElementById('addComId').className = 'form-input mono error-state';
+    comSynced = false;
+  }
+}
+
+async function fetchRobloxUser(userId) {
+  // 1. Via Worker /roblox-user (POST, sesuai struktur worker SS Studio)
+  if (settingsData.workerUrl && settingsData.secretToken) {
+    try {
+      const base = settingsData.workerUrl.replace(/\/$/, '');
+      const res = await fetch(base + '/roblox-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: settingsData.secretToken, userId: String(userId) })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.name) return data.name;
+      }
+    } catch(e) { console.warn('Worker /roblox-user failed:', e.message); }
+  }
+  // 2. CORS proxy fallback
+  try {
+    const res = await fetch('https://corsproxy.io/?' + encodeURIComponent('https://users.roblox.com/v1/users/' + userId));
+    if (res.ok) {
+      const data = await res.json();
+      return data.name || data.displayName || null;
+    }
+  } catch(e) { console.warn('CORS proxy user failed:', e.message); }
+  return null;
+}
+
+async function fetchRobloxGroup(groupId) {
+  // 1. Via Worker /roblox-group (POST)
+  if (settingsData.workerUrl && settingsData.secretToken) {
+    try {
+      const base = settingsData.workerUrl.replace(/\/$/, '');
+      const res = await fetch(base + '/roblox-group', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: settingsData.secretToken, groupId: String(groupId) })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.name) return data.name;
+      }
+    } catch(e) { console.warn('Worker /roblox-group failed:', e.message); }
+  }
+  // 2. CORS proxy fallback
+  try {
+    const res = await fetch('https://corsproxy.io/?' + encodeURIComponent('https://groups.roblox.com/v1/groups/' + groupId));
+    if (res.ok) {
+      const data = await res.json();
+      return data.name || null;
+    }
+  } catch(e) { console.warn('CORS proxy group failed:', e.message); }
+  return null;
+}
+
+function resetUserSync() {
+  userSynced = false;
+  document.getElementById('addUserId').className = 'form-input mono';
+  document.getElementById('hintUser').textContent = 'Ketik User ID — username akan muncul otomatis';
+  document.getElementById('hintUser').className = 'form-hint';
+  document.getElementById('addUserName').value = '';
+}
+
+function resetComSync() {
+  comSynced = false;
+  document.getElementById('addComId').className = 'form-input mono';
+  document.getElementById('hintCom').textContent = 'Ketik Group ID — nama akan muncul otomatis';
+  document.getElementById('hintCom').className = 'form-hint';
+  document.getElementById('addComName').value = '';
+}
+
+// ── Auto-debounce handlers ──
+let _userDebounce = null;
+function handleUserIdInput() {
+  resetUserSync();
+  clearTimeout(_userDebounce);
+  const val = document.getElementById('addUserId').value.trim();
+  if (!val || val.length < 4) return;
+  document.getElementById('hintUser').textContent = 'Mengambil username...';
+  _userDebounce = setTimeout(() => syncRobloxUser(), 700);
+}
+
+let _comDebounce = null;
+function handleComIdInput() {
+  resetComSync();
+  clearTimeout(_comDebounce);
+  const val = document.getElementById('addComId').value.trim();
+  if (!val || val.length < 4) return;
+  document.getElementById('hintCom').textContent = 'Mengambil nama group...';
+  _comDebounce = setTimeout(() => syncRobloxGroup(), 700);
+}
+
+// ══════════════════════════════════════════════
+//  CRUD — USERS
+// ══════════════════════════════════════════════
+async function addUser() {
+  const userId   = document.getElementById('addUserId').value.trim();
+  const userName = document.getElementById('addUserName').value.trim();
+  const products = getSelectedProducts('userProductChips');
+
+  if (!userId)    { showToast('User ID wajib diisi', 'warn'); return; }
+  if (!userName)  { showToast('Tunggu username selesai dimuat, atau klik Auto', 'warn'); return; }
+  if (products.length === 0) { showToast('Pilih minimal 1 product', 'warn'); return; }
+
+  // Cek apakah user sudah ada
+  const existing = allUsers.find(u => String(u.userId) === String(userId));
+  if (existing) {
+    // Cari product baru yang belum ada di record existing
+    const existingProds = existing.products || [];
+    const newProds = products.filter(p => !existingProds.includes(p));
+    if (newProds.length === 0) {
+      showToast(`${userName} sudah memiliki semua product yang dipilih`, 'warn'); return;
+    }
+    // Merge — tambahkan product baru ke record yang sudah ada
+    try {
+      const mergedProds = [...existingProds, ...newProds];
+      await colUsers().doc(existing._id).update({ products: mergedProds });
+      showToast(`Product baru ditambahkan ke ${userName}! (${newProds.join(', ')})`, 'success');
+      clearUserForm();
+    } catch(e) {
+      showToast('Gagal update: ' + e.message, 'error');
+    }
+    return;
+  }
+
+  // User baru — tambah record baru
+  try {
+    await colUsers().add({
+      userId:   userId,
+      username: userName,
+      products: products,
+      addedAt:  firebase.firestore.FieldValue.serverTimestamp()
+    });
+    showToast(`${userName} berhasil ditambahkan!`, 'success');
+    clearUserForm();
+  } catch(e) {
+    showToast('Gagal menambahkan: ' + e.message, 'error');
+  }
+}
+
+function clearUserForm() {
+  document.getElementById('addUserId').value = '';
+  document.getElementById('addUserName').value = '';
+  resetUserSync();
+  document.querySelectorAll('#userProductChips .product-chip').forEach(c => c.classList.remove('selected'));
+}
+
+// ══════════════════════════════════════════════
+//  CRUD — COMMUNITIES
+// ══════════════════════════════════════════════
+async function addCommunity() {
+  const groupId   = document.getElementById('addComId').value.trim();
+  const groupName = document.getElementById('addComName').value.trim();
+  const products  = getSelectedProducts('comProductChips');
+
+  if (!groupId)   { showToast('Group ID wajib diisi', 'warn'); return; }
+  if (!groupName) { showToast('Tunggu nama group selesai dimuat, atau klik Auto', 'warn'); return; }
+  if (products.length === 0) { showToast('Pilih minimal 1 product', 'warn'); return; }
+
+  // Cek apakah community sudah ada
+  const existing = allComs.find(c => String(c.groupId || c.communityId) === String(groupId));
+  if (existing) {
+    const existingProds = existing.products || [];
+    const newProds = products.filter(p => !existingProds.includes(p));
+    if (newProds.length === 0) {
+      showToast(`${groupName} sudah memiliki semua product yang dipilih`, 'warn'); return;
+    }
+    try {
+      const mergedProds = [...existingProds, ...newProds];
+      await colComs().doc(existing._id).update({ products: mergedProds });
+      showToast(`Product baru ditambahkan ke ${groupName}! (${newProds.join(', ')})`, 'success');
+      clearComForm();
+    } catch(e) {
+      showToast('Gagal update: ' + e.message, 'error');
+    }
+    return;
+  }
+
+  // Community baru — tambah record baru
+  try {
+    await colComs().add({
+      groupId:  groupId,
+      name:     groupName,
+      products: products,
+      addedAt:  firebase.firestore.FieldValue.serverTimestamp()
+    });
+    showToast(`${groupName} berhasil ditambahkan!`, 'success');
+    clearComForm();
+  } catch(e) {
+    showToast('Gagal menambahkan: ' + e.message, 'error');
+  }
+}
+
+function clearComForm() {
+  document.getElementById('addComId').value = '';
+  document.getElementById('addComName').value = '';
+  resetComSync();
+  document.querySelectorAll('#comProductChips .product-chip').forEach(c => c.classList.remove('selected'));
+}
+
+// ══════════════════════════════════════════════
+//  COMBINED ADD (User + optional Community)
+// ══════════════════════════════════════════════
+async function addBoth() {
+  const userId   = document.getElementById('addUserId').value.trim();
+  const userName = document.getElementById('addUserName').value.trim();
+  const groupId  = document.getElementById('addComId').value.trim();
+  const groupName= document.getElementById('addComName').value.trim();
+  const products = getSelectedProducts('userProductChips');
+
+  // Validate user (required)
+  if (!userId) { showToast('User ID wajib diisi', 'warn'); return; }
+  if (!userName) { showToast('Ketik ID untuk mendapatkan username', 'warn'); return; }
+  if (products.length === 0) { showToast('Pilih minimal 1 product', 'warn'); return; }
+
+  // Validate community (if filled, name must also be present)
+  const hasGroup = !!groupId;
+  if (hasGroup && !groupName) { showToast('Ketik Group ID untuk mendapatkan nama group', 'warn'); return; }
+
+  let results = [];
+
+  // --- ADD USER ---
+  const existingUser = allUsers.find(u => String(u.userId) === String(userId));
+  if (existingUser) {
+    const mergedProds = [...new Set([...(existingUser.products||[]), ...products])];
+    const newProds = products.filter(p => !(existingUser.products||[]).includes(p));
+    if (newProds.length === 0) {
+      results.push(`User ${userName}: semua product sudah ada`);
+    } else {
+      await colUsers().doc(existingUser._id).update({ products: mergedProds });
+      results.push(`User ${userName}: +${newProds.length} product ditambahkan`);
+    }
+  } else {
+    await colUsers().add({ userId, username: userName, products, addedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    results.push(`User ${userName} berhasil ditambahkan`);
+  }
+
+  // --- ADD COMMUNITY (optional) ---
+  if (hasGroup) {
+    const existingCom = allComs.find(c => String(c.groupId||c.communityId) === String(groupId));
+    if (existingCom) {
+      const mergedProds = [...new Set([...(existingCom.products||[]), ...products])];
+      const newProds = products.filter(p => !(existingCom.products||[]).includes(p));
+      if (newProds.length === 0) {
+        results.push(`Community ${groupName}: semua product sudah ada`);
+      } else {
+        await colComs().doc(existingCom._id).update({ products: mergedProds });
+        results.push(`Community ${groupName}: +${newProds.length} product ditambahkan`);
+      }
+    } else {
+      await colComs().add({ groupId, name: groupName, products, addedAt: firebase.firestore.FieldValue.serverTimestamp() });
+      results.push(`Community ${groupName} berhasil ditambahkan`);
+    }
+  }
+
+  showToast(results.join(' · '), 'success');
+  clearBothForms();
+}
+
+function clearBothForms() {
+  clearUserForm();
+  clearComForm();
+  document.querySelectorAll('#userProductChips .product-chip').forEach(c => c.classList.remove('selected'));
+}
+// ══════════════════════════════════════════════
+function listenUsers() {
+  if (unsubUsers) unsubUsers();
+  unsubUsers = colUsers().orderBy('addedAt','desc').onSnapshot(snap => {
+    allUsers = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
+    renderUsers();
+    updateStats();
+    updateCharts();
+  }, e => console.error('Users listener:', e));
+}
+
+function listenComs() {
+  if (unsubComs) unsubComs();
+  unsubComs = colComs().orderBy('addedAt','desc').onSnapshot(snap => {
+    allComs = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
+    renderComs();
+    updateStats();
+    updateCharts();
+  }, e => console.error('Coms listener:', e));
+}
+
+// ══════════════════════════════════════════════
+//  RENDER USERS
+// ══════════════════════════════════════════════
+function renderUsers(data) {
+  const list = data || allUsers;
+  const el = document.getElementById('usersList');
+  document.getElementById('navBadgeUsers').textContent = allUsers.length;
+  if (list.length === 0) {
+    el.innerHTML = `<div class="empty-state">
+      <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+      <div class="empty-title">Belum ada user</div>
+      <div class="empty-desc">Tambahkan user pertama di halaman Kelola Akses.</div>
+    </div>`; return;
+  }
+  el.innerHTML = list.map(u => {
+    const date = u.addedAt ? formatDate(u.addedAt.toDate ? u.addedAt.toDate() : new Date(u.addedAt)) : '—';
+    const prods = (u.products||[]).map(p => {
+      const prod = settingsData.products.find(x => String(x.id) === String(p));
+      return `<span class="tag prod">${escH(prod ? prod.name : p)}</span>`;
+    }).join('');
+    const initials = (u.username||'?')[0].toUpperCase();
+    return `
+    <div class="list-item" id="user-${u._id}">
+      <div class="list-avatar" style="background:${strToColor(u.username||'')}20;color:${strToColor(u.username||'')}">
+        ${initials}
+      </div>
+      <div class="list-info">
+        <div class="list-name">${escH(u.username||'Unknown')}</div>
+        <div class="list-id">User ID: ${escH(u.userId)}</div>
+        <div class="list-tags">${prods}<span class="tag date">${date}</span></div>
+      </div>
+      <button class="kebab-btn" onclick="toggleKebab(event,'kebab-u-${u._id}')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+      </button>
+      <div class="kebab-menu" id="kebab-u-${u._id}">
+        <div class="kebab-menu-item" onclick="copyId('${escH(u.userId)}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Salin User ID
+        </div>
+        <div class="kebab-menu-item" onclick="viewOnRoblox('user','${escH(u.userId)}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          Lihat di Roblox
+        </div>
+        <div class="kebab-menu-item danger" onclick="askDelete('user','${u._id}','${escH(u.username||'User ini')}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+          Cabut Akses
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterUsers() {
+  const q = document.getElementById('searchUsers').value.toLowerCase();
+  const filtered = allUsers.filter(u =>
+    (u.username||'').toLowerCase().includes(q) ||
+    String(u.userId||'').includes(q)
+  );
+  renderUsers(filtered);
+}
+
+// ══════════════════════════════════════════════
+//  RENDER COMMUNITIES
+// ══════════════════════════════════════════════
+function renderComs(data) {
+  const list = data || allComs;
+  const el = document.getElementById('comsList');
+  document.getElementById('navBadgeCom').textContent = allComs.length;
+  if (list.length === 0) {
+    el.innerHTML = `<div class="empty-state">
+      <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>
+      <div class="empty-title">Belum ada community</div>
+      <div class="empty-desc">Tambahkan community pertama di halaman Kelola Akses.</div>
+    </div>`; return;
+  }
+  el.innerHTML = list.map(c => {
+    const gid = c.groupId || c.communityId || '—';
+    const date = c.addedAt ? formatDate(c.addedAt.toDate ? c.addedAt.toDate() : new Date(c.addedAt)) : '—';
+    const prods = (c.products||[]).map(p => {
+      const prod = settingsData.products.find(x => String(x.id) === String(p));
+      return `<span class="tag prod">${escH(prod ? prod.name : p)}</span>`;
+    }).join('');
+    const initials = (c.name||'?')[0].toUpperCase();
+    return `
+    <div class="list-item" id="com-${c._id}">
+      <div class="list-avatar" style="background:${strToColor(c.name||'')}20;color:${strToColor(c.name||'')}">
+        ${initials}
+      </div>
+      <div class="list-info">
+        <div class="list-name">${escH(c.name||'Unknown Group')}</div>
+        <div class="list-id">Group ID: ${escH(gid)}</div>
+        <div class="list-tags">${prods}<span class="tag date">${date}</span></div>
+      </div>
+      <button class="kebab-btn" onclick="toggleKebab(event,'kebab-c-${c._id}')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+      </button>
+      <div class="kebab-menu" id="kebab-c-${c._id}">
+        <div class="kebab-menu-item" onclick="copyId('${escH(gid)}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Salin Group ID
+        </div>
+        <div class="kebab-menu-item" onclick="viewOnRoblox('group','${escH(gid)}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          Lihat di Roblox
+        </div>
+        <div class="kebab-menu-item danger" onclick="askDelete('community','${c._id}','${escH(c.name||'Community ini')}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+          Cabut Akses
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterComs() {
+  const q = document.getElementById('searchComs').value.toLowerCase();
+  const filtered = allComs.filter(c =>
+    (c.name||'').toLowerCase().includes(q) ||
+    String(c.groupId||c.communityId||'').includes(q)
+  );
+  renderComs(filtered);
+}
+
+// ══════════════════════════════════════════════
+//  STATS
+// ══════════════════════════════════════════════
+function updateStats() {
+  const uc = allUsers.length, cc = allComs.length;
+  const pc = settingsData.products ? settingsData.products.length : 0;
+  animateCount('statUsers', uc);
+  animateCount('statComs', cc);
+  animateCount('statProds', pc);
+  animateCount('statTotal', uc + cc);
+
+  // Trend: count added in last 7 days
+  const now = Date.now();
+  const week = 7 * 24 * 60 * 60 * 1000;
+  const recentU = allUsers.filter(u => u.addedAt && (u.addedAt.toDate ? u.addedAt.toDate().getTime() : new Date(u.addedAt).getTime()) > now - week).length;
+  const recentC = allComs.filter(c => c.addedAt && (c.addedAt.toDate ? c.addedAt.toDate().getTime() : new Date(c.addedAt).getTime()) > now - week).length;
+  document.getElementById('statUsersTrend').innerHTML = recentU > 0 ? `<span style="color:var(--green)">↑ +${recentU} minggu ini</span>` : `Tidak ada tambahan`;
+  document.getElementById('statComsTrend').innerHTML  = recentC > 0 ? `<span style="color:var(--green)">↑ +${recentC} minggu ini</span>` : `Tidak ada tambahan`;
+  document.getElementById('statProdsTrend').innerHTML = `${pc} asset terdaftar`;
+  document.getElementById('statTotalTrend').innerHTML = `<span style="color:var(--accent2)">↑ +${recentU+recentC} minggu ini</span>`;
+
+  renderActivityFeed();
+}
+
+function animateCount(id, target) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const start = parseInt(el.textContent) || 0;
+  if (start === target) return;
+  const step = (target - start) / 20;
+  let cur = start;
+  const interval = setInterval(() => {
+    cur += step;
+    if ((step > 0 && cur >= target) || (step < 0 && cur <= target)) {
+      el.textContent = target; clearInterval(interval);
+    } else { el.textContent = Math.round(cur); }
+  }, 20);
+}
+
+// ══════════════════════════════════════════════
+//  ACTIVITY FEED
+// ══════════════════════════════════════════════
+function renderActivityFeed() {
+  const all = [
+    ...allUsers.map(u => ({ type:'user', name: u.username||u.userId, ts: u.addedAt, action:'add' })),
+    ...allComs.map(c  => ({ type:'com',  name: c.name||c.groupId,    ts: c.addedAt, action:'add' }))
+  ];
+  all.sort((a,b) => {
+    const ta = a.ts ? (a.ts.toDate ? a.ts.toDate().getTime() : new Date(a.ts).getTime()) : 0;
+    const tb = b.ts ? (b.ts.toDate ? b.ts.toDate().getTime() : new Date(b.ts).getTime()) : 0;
+    return tb - ta;
+  });
+  const recent = all.slice(0, 8);
+  const el = document.getElementById('activityList');
+  if (recent.length === 0) {
+    el.innerHTML = `<div class="empty-state" style="padding:24px"><div class="empty-desc">Belum ada aktivitas</div></div>`;
+    return;
+  }
+  el.innerHTML = recent.map(item => {
+    const tsRaw = item.ts ? (item.ts.toDate ? item.ts.toDate() : new Date(item.ts)) : null;
+    const timeStr = tsRaw ? timeAgo(tsRaw) : '—';
+    const typeLabel = item.type === 'user' ? 'user' : 'community';
+    return `<div class="activity-item">
+      <div class="activity-dot add"></div>
+      <div class="activity-body">
+        <div class="activity-text">Akses diberikan ke <strong>${escH(item.name)}</strong> (${typeLabel})</div>
+        <div class="activity-time">${timeStr}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════
+//  CHARTS — REAL FIRESTORE DATA
+// ══════════════════════════════════════════════
+function updateCharts() {
+  updateLineChart();
+  updateDonutChart();
+}
+
+function getLast7Days() {
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    days.push(d);
+  }
+  return days;
+}
+
+function countByDay(items, days) {
+  return days.map(day => {
+    const dayStr = day.toDateString();
+    return items.filter(item => {
+      if (!item.addedAt) return false;
+      const ts = item.addedAt.toDate ? item.addedAt.toDate() : new Date(item.addedAt);
+      return ts.toDateString() === dayStr;
+    }).length;
+  });
+}
+
+function updateLineChart() {
+  const days = getLast7Days();
+  const labels = days.map(d => d.toLocaleDateString('id-ID', { weekday:'short', month:'short', day:'numeric' }));
+  const userCounts = countByDay(allUsers, days);
+  const comCounts  = countByDay(allComs, days);
+
+  const totalAdded = userCounts.reduce((a,b)=>a+b,0) + comCounts.reduce((a,b)=>a+b,0);
+  document.getElementById('chartSubLine').textContent = `Total ${totalAdded} entry ditambahkan 7 hari terakhir`;
+
+  const ctx = document.getElementById('chartLine').getContext('2d');
+  if (chartLine) { chartLine.destroy(); }
+  chartLine = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Users',
+          data: userCounts,
+          borderColor: '#6366F1',
+          backgroundColor: 'rgba(99,102,241,0.1)',
+          borderWidth: 2,
+          pointBackgroundColor: '#6366F1',
+          pointRadius: 4,
+          tension: 0.4,
+          fill: true
+        },
+        {
+          label: 'Communities',
+          data: comCounts,
+          borderColor: '#14B8A6',
+          backgroundColor: 'rgba(20,184,166,0.07)',
+          borderWidth: 2,
+          pointBackgroundColor: '#14B8A6',
+          pointRadius: 4,
+          tension: 0.4,
+          fill: true
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: '#94A3B8', font: { family: 'DM Sans', size: 12 }, boxWidth: 10 } }
+      },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#64748B', font: { size: 11 } } },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { color: '#64748B', font: { size: 11 }, stepSize: 1 },
+          beginAtZero: true
+        }
+      }
+    }
+  });
+}
+
+function updateDonutChart() {
+  const uc = allUsers.length, cc = allComs.length;
+  const ctx = document.getElementById('chartDonut').getContext('2d');
+  if (chartDonut) { chartDonut.destroy(); }
+  chartDonut = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Users', 'Communities'],
+      datasets: [{
+        data: [uc || 0.01, cc || 0.01],
+        backgroundColor: ['rgba(99,102,241,0.8)', 'rgba(20,184,166,0.8)'],
+        borderColor: ['#6366F1', '#14B8A6'],
+        borderWidth: 2,
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '68%',
+      plugins: {
+        legend: { position: 'bottom', labels: { color: '#94A3B8', font: { family: 'DM Sans', size: 12 }, boxWidth: 10, padding: 12 } }
+      }
+    }
+  });
+}
+
+// ══════════════════════════════════════════════
+//  DELETE / MODAL
+// ══════════════════════════════════════════════
+function askDelete(type, docId, name) {
+  closeAllKebabs();
+  pendingDelete = { type, docId, name };
+  document.getElementById('modalTargetName').textContent = name;
+  document.getElementById('confirmModal').classList.add('open');
+}
+
+async function confirmDelete() {
+  if (!pendingDelete) return;
+  const { type, docId, name } = pendingDelete;
+  closeModal();
+  try {
+    if (type === 'user') await colUsers().doc(docId).delete();
+    else                  await colComs().doc(docId).delete();
+    showToast(`Akses ${name} berhasil dicabut.`, 'info');
+  } catch(e) {
+    showToast('Gagal menghapus: ' + e.message, 'error');
+  }
+  pendingDelete = null;
+}
+
+function closeModal() {
+  document.getElementById('confirmModal').classList.remove('open');
+}
+
+// ══════════════════════════════════════════════
+//  KEBAB
+// ══════════════════════════════════════════════
+function toggleKebab(event, id) {
+  event.stopPropagation();
+  const menu = document.getElementById(id);
+  const isOpen = menu.classList.contains('open');
+  closeAllKebabs();
+  if (!isOpen) menu.classList.add('open');
+}
+
+function closeAllKebabs() {
+  document.querySelectorAll('.kebab-menu.open').forEach(m => m.classList.remove('open'));
+}
+
+document.addEventListener('click', closeAllKebabs);
+
+function copyId(id) {
+  closeAllKebabs();
+  navigator.clipboard.writeText(id).then(() => showToast(`ID "${id}" disalin!`, 'success'));
+}
+
+function viewOnRoblox(type, id) {
+  closeAllKebabs();
+  const url = type === 'user'
+    ? `https://www.roblox.com/users/${id}/profile`
+    : `https://www.roblox.com/groups/${id}`;
+  window.open(url, '_blank');
+}
+
+// ══════════════════════════════════════════════
+//  EXPORT / IMPORT
+// ══════════════════════════════════════════════
+function exportData() {
+  const data = {
+    exportedAt: new Date().toISOString(),
+    version: '2.0',
+    authorizedUsers: allUsers.map(u => ({
+      userId: u.userId, username: u.username, products: u.products,
+      addedAt: u.addedAt ? (u.addedAt.toDate ? u.addedAt.toDate().toISOString() : u.addedAt) : null
+    })),
+    authorizedCommunities: allComs.map(c => ({
+      groupId: c.groupId || c.communityId, name: c.name, products: c.products,
+      addedAt: c.addedAt ? (c.addedAt.toDate ? c.addedAt.toDate().toISOString() : c.addedAt) : null
+    })),
+    settings: { ...settingsData, secretToken: '***' }
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `ss-whitelist-backup-${new Date().toISOString().split('T')[0]}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Data berhasil diexport!', 'success');
+}
+
+function triggerImport() {
+  document.getElementById('importInput').click();
+}
+
+async function importData(input) {
+  const file = input.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (!data.authorizedUsers && !data.authorizedCommunities) {
+      showToast('Format file tidak valid', 'error'); return;
+    }
+    const confirmImport = confirm(
+      `Import akan menambahkan:\n` +
+      `• ${(data.authorizedUsers||[]).length} users\n` +
+      `• ${(data.authorizedCommunities||[]).length} communities\n\n` +
+      `Data yang sudah ada tidak akan dihapus. Lanjutkan?`
+    );
+    if (!confirmImport) return;
+
+    let added = 0;
+    const batch = db.batch();
+    for (const u of (data.authorizedUsers||[])) {
+      if (!allUsers.find(x => String(x.userId) === String(u.userId))) {
+        const ref = colUsers().doc();
+        batch.set(ref, { userId: u.userId, username: u.username||'', products: u.products||[], addedAt: firebase.firestore.FieldValue.serverTimestamp() });
+        added++;
+      }
+    }
+    for (const c of (data.authorizedCommunities||[])) {
+      if (!allComs.find(x => String(x.groupId||x.communityId) === String(c.groupId))) {
+        const ref = colComs().doc();
+        batch.set(ref, { groupId: c.groupId, name: c.name||'', products: c.products||[], addedAt: firebase.firestore.FieldValue.serverTimestamp() });
+        added++;
+      }
+    }
+    await batch.commit();
+    showToast(`Import selesai! ${added} entry baru ditambahkan.`, 'success');
+  } catch(e) {
+    showToast('Gagal import: ' + e.message, 'error');
+  }
+  input.value = '';
+}
+
+// ══════════════════════════════════════════════
+//  REFRESH
+// ══════════════════════════════════════════════
+function refreshAll() {
+  showToast('Merefresh data...', 'info');
+  listenUsers();
+  listenComs();
+}
+
+// ══════════════════════════════════════════════
+//  NAVIGATION
+// ══════════════════════════════════════════════
+const pageTitles = {
+  dashboard:   ['Dashboard', 'Overview aktivitas whitelist'],
+  kelola:      ['Kelola Akses', 'Tambah atau cabut otorisasi'],
+  users:       ['Authorized Users', 'Daftar user yang diizinkan'],
+  communities: ['Authorized Communities', 'Daftar community yang diizinkan'],
+  settings:    ['Pengaturan', 'Konfigurasi sistem']
+};
+
+function navigate(el) {
+  const page = el.dataset.page;
+  document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('page-' + page).classList.add('active');
+  const t = pageTitles[page] || [page, ''];
+  document.getElementById('pageTitle').textContent = t[0];
+  document.getElementById('pageSub').textContent = t[1];
+  closeSidebar();
+}
+
+function switchTab(el, tabId) {
+  el.parentElement.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+  el.parentElement.parentElement.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById(tabId).classList.add('active');
+}
+
+// ══════════════════════════════════════════════
+//  CLOCK
+// ══════════════════════════════════════════════
+let currentLang = 'id';
+
+const DAYS_ID = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+const DAYS_EN = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const MONTHS_ID = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+const MONTHS_EN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function startClock() {
+  function tick() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2,'0');
+    const m = String(now.getMinutes()).padStart(2,'0');
+    const s = String(now.getSeconds()).padStart(2,'0');
+    document.getElementById('clockTime').innerHTML =
+      `${h}<span class="colon">:</span>${m}<span class="colon">:</span>${s}`;
+    if (currentLang === 'id') {
+      document.getElementById('clockDate').textContent =
+        `${DAYS_ID[now.getDay()]}, ${now.getDate()} ${MONTHS_ID[now.getMonth()]} ${now.getFullYear()}`;
+    } else {
+      document.getElementById('clockDate').textContent =
+        `${DAYS_EN[now.getDay()]}, ${MONTHS_EN[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
+    }
+  }
+  tick();
+  setInterval(tick, 1000);
+}
+
+// ══════════════════════════════════════════════
+//  SIDEBAR (mobile)
+// ══════════════════════════════════════════════
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+}
+
+// ══════════════════════════════════════════════
+//  TOAST
+// ══════════════════════════════════════════════
+function showToast(msg, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `<div class="toast-dot"></div>${escH(msg)}`;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.classList.add('removing');
+    setTimeout(() => toast.remove(), 200);
+  }, 3500);
+}
+
+// ══════════════════════════════════════════════
+//  UTILS
+// ══════════════════════════════════════════════
+function escH(str) {
+  return String(str||'')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function formatDate(d) {
+  if (!d) return '—';
+  return d.toLocaleDateString('id-ID', { day:'numeric', month:'short', year:'numeric' });
+}
+
+function timeAgo(d) {
+  const diff = Date.now() - d.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1)   return 'baru saja';
+  if (mins < 60)  return `${mins} menit lalu`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24)   return `${hrs} jam lalu`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7)   return `${days} hari lalu`;
+  return formatDate(d);
+}
+
+function strToColor(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  const colors = ['#6366F1','#14B8A6','#F59E0B','#EC4899','#8B5CF6','#10B981','#3B82F6','#EF4444'];
+  return colors[Math.abs(hash) % colors.length];
+}// ══════════════════════════════════════════════
+//  BACKGROUND CUSTOMIZATION
+// ══════════════════════════════════════════════
+function applyBgToApp(url, opacity) {
+  const main = document.querySelector('.main');
+  const bgLayer = document.getElementById('mainBgLayer');
+  const bgOverlay = document.getElementById('mainBgOverlay');
+  if (!bgLayer || !bgOverlay) return;
+
+  if (url) {
+    bgLayer.style.backgroundImage = `url('${url}')`;
+    const alpha = Math.round((opacity ?? 88) / 100 * 255).toString(16).padStart(2,'0');
+    bgOverlay.style.background = `#07090F${alpha}`;
+    bgLayer.style.display = 'block';
+    bgOverlay.style.display = 'block';
+    document.body.classList.add('has-bg-image');
+    // Update preview
+    const box = document.getElementById('bgPreviewBox');
+    if (box) {
+      box.style.backgroundImage = `url('${url}')`;
+      box.style.backgroundSize = 'cover';
+      box.style.backgroundPosition = 'center';
+      document.getElementById('bgPreviewLabel').style.display = 'none';
+    }
+  } else {
+    bgLayer.style.backgroundImage = '';
+    bgLayer.style.display = 'none';
+    bgOverlay.style.display = 'none';
+    document.body.classList.remove('has-bg-image');
+    const box = document.getElementById('bgPreviewBox');
+    if (box) {
+      box.style.backgroundImage = '';
+      document.getElementById('bgPreviewLabel').style.display = '';
+    }
+  }
+}
+
+function previewBg() {
+  const url = document.getElementById('settingBgImage').value.trim();
+  if (!url) { showToast('Masukkan URL gambar terlebih dahulu', 'warn'); return; }
+  const op = parseInt(document.getElementById('settingBgOpacity').value) || 88;
+  applyBgToApp(url, op);
+  showToast('Background dipreview', 'info');
+}
+
+function clearBg() {
+  document.getElementById('settingBgImage').value = '';
+  applyBgToApp('', 88);
+  document.getElementById('settingBgOpacity').value = 88;
+  document.getElementById('bgOpacityLabel').textContent = '88%';
+  showToast('Background dihapus', 'info');
+}
+
+function updateBgOpacity(val) {
+  document.getElementById('bgOpacityLabel').textContent = val + '%';
+  const url = document.getElementById('settingBgImage').value.trim();
+  if (url) applyBgToApp(url, parseInt(val));
+}
+
+// ══════════════════════════════════════════════
+//  LANGUAGE SWITCHER
+// ══════════════════════════════════════════════
+function toggleLangDropdown() {
+  document.getElementById('langDropdown').classList.toggle('open');
+}
+function selectLang(code, label, flag, name) {
+  currentLang = code;
+  document.getElementById('langLabel').textContent = label;
+  document.getElementById('langDropdown').classList.remove('open');
+  document.querySelectorAll('.lang-option').forEach(o => o.classList.remove('active'));
+  event.target.closest('.lang-option').classList.add('active');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('#langSwitcher')) {
+    const dd = document.getElementById('langDropdown');
+    if (dd) dd.classList.remove('open');
+  }
+});
+
+// ══════════════════════════════════════════════
+//  SECURITY COLLAPSIBLE
+// ══════════════════════════════════════════════
+function toggleSecurity() {
+  const body = document.getElementById('securityBody');
+  const chevron = document.getElementById('securityChevron');
+  const isOpen = body.style.maxHeight !== '0px' && body.style.maxHeight !== '';
+  if (isOpen) {
+    body.style.maxHeight = '0px';
+    chevron.style.transform = 'rotate(0deg)';
+  } else {
+    body.style.maxHeight = body.scrollHeight + 'px';
+    chevron.style.transform = 'rotate(180deg)';
+  }
+}
+</script>
+</html>
